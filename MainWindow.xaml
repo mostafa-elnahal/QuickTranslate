@@ -1,0 +1,210 @@
+<Window x:Class="QuickTranslate.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:QuickTranslate"
+        mc:Ignorable="d"
+        Title="QuickTranslate"
+        Height="Auto" Width="600"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ShowActivated="False"
+        ShowInTaskbar="False"
+        ResizeMode="CanResize"
+        Visibility="{Binding WindowVisibility}"
+        SizeToContent="Height"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="0" ResizeBorderThickness="5" />
+    </WindowChrome.WindowChrome>
+
+    <Window.Style>
+        <Style TargetType="Window">
+            <Setter Property="Opacity" Value="0.8"/>
+            <Style.Triggers>
+                <EventTrigger RoutedEvent="MouseEnter">
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="Opacity" To="1.0" Duration="0:0:0.2"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </EventTrigger>
+                <EventTrigger RoutedEvent="MouseLeave">
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="Opacity" To="0.8" Duration="0:0:0.2"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </EventTrigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Style>
+    
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <local:BoolToFlowDirectionConverter x:Key="BoolToFlowDirection"/>
+    </Window.Resources>
+    
+    <Border Background="Black" 
+            BorderBrush="#2e2e2fff" 
+            BorderThickness="1" 
+            CornerRadius="0">
+        <!-- Main Container -->
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            
+            <StackPanel Grid.Row="0" Margin="10">
+                
+                <!-- Loading State -->
+                <StackPanel Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           MinHeight="50">
+                    <TextBlock Text="Loading..." 
+                              Foreground="#DDDDDD" 
+                              HorizontalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Translation Content -->
+                <StackPanel DataContext="{Binding CurrentTranslation}">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding}" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+
+                    <!-- Header: Langs & Service (Thinner) -->
+                    <DockPanel LastChildFill="False" Margin="0,0,0,5">
+                        <TextBlock Foreground="#0099FF" FontSize="12" VerticalAlignment="Center">
+                            <Run Text="{Binding SourceLanguage}"/> 
+                            <Run Text="to"/> 
+                            <Run Text="{Binding TargetLanguage}"/>
+                            <Run Text="(" /><Run Text="{Binding ProviderName}"/><Run Text=")"/>
+                        </TextBlock>
+                        
+                        <!-- Header Icons Mockup (need real icons) -->
+                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                             <!-- Star -->
+                            <Path Data="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z" 
+                                  Fill="Gray" Height="10" Width="10" Margin="4,0" Cursor="Hand"/>
+                             <!-- Copy -->
+                             <Path Data="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z" 
+                                  Fill="Gray" Height="10" Width="10" Margin="4,0" Cursor="Hand"/>
+                             <!-- Speaker -->
+                             <Path Data="M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.84 14,18.7V20.77C18,19.86 21,16.28 21,12C21,7.72 18,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.76 16.5,12M3,9V15H7L12,20V4L7,9H3Z" 
+                                  Fill="Gray" Height="10" Width="10" Margin="4,0" Cursor="Hand"/>
+                             <!-- Close Button -->
+                             <Path Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" 
+                                  Fill="#AA4444" Height="12" Width="12" Margin="8,0,0,0" Cursor="Hand"
+                                  MouseLeftButtonDown="CloseButton_Click"/>
+                        </StackPanel>
+                    </DockPanel>
+
+                    <!-- Main Translated Word -->
+                    <TextBlock Text="{Binding MainTranslation}" 
+                               Foreground="#DDDDDD" 
+                               FontSize="16" 
+                               TextWrapping="Wrap"
+                               FlowDirection="{Binding IsRtl, Converter={StaticResource BoolToFlowDirection}}"
+                               Margin="0,0,0,10"/>
+
+                    <!-- Dictionary Entries -->
+                    <ItemsControl ItemsSource="{Binding DictionaryEntries}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="0,0,0,10">
+                                    <TextBlock Text="{Binding PartOfSpeech}" 
+                                               Foreground="#CCCCCC" 
+                                               HorizontalAlignment="Right"
+                                               Margin="0,0,0,5"/>
+                                    
+                                    <!-- Definitions -->
+                                    <ItemsControl ItemsSource="{Binding Definitions}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <!-- Unified TextBlock for MainTerm + Synonyms -->
+                                                <TextBlock HorizontalAlignment="Right" Margin="0,2">
+                                                    <Run Text="{Binding SynonymsText, Mode=OneWay}" Foreground="#AAAAAA" FontSize="12"/>
+                                                    <Run Text=" "/>
+                                                    <Run Text="{Binding MainTerm}" Foreground="#DDDDDD" FontSize="14"/>
+                                                </TextBlock>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                </StackPanel>
+            </StackPanel>
+            
+            <!-- Footer / Providers Bar (Auto-Hide) - Stick to Bottom -->
+            <ItemsControl Grid.Row="1" ItemsSource="{Binding Providers}" Margin="10,5,10,10">
+                <ItemsControl.Style>
+                    <Style TargetType="ItemsControl">
+                        <Setter Property="Opacity" Value="0"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                <DataTrigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetProperty="Opacity" To="1.0" Duration="0:0:0.2"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </DataTrigger.EnterActions>
+                                <DataTrigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.2"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </DataTrigger.ExitActions>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ItemsControl.Style>
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <UniformGrid Rows="1"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Margin="2,0" Padding="4,4" Cursor="Hand" 
+                                Background="#1A1A1A" BorderThickness="0,2,0,0"
+                                BorderBrush="{Binding BrandColor}"
+                                MouseLeftButtonDown="Provider_Click">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#2A2A2A"/>
+                                        </Trigger>
+                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                            <Setter Property="Background" Value="#333333"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBlock Text="{Binding Name}" Foreground="#CCCCCC" FontSize="11" 
+                                       TextTrimming="CharacterEllipsis" HorizontalAlignment="Center"/>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Grid>
+    </Border>
+</Window>
