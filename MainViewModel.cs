@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows;
 using QuickTranslate.Services;
+using QuickTranslate.Models;
 
 namespace QuickTranslate;
 
@@ -107,9 +108,9 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
     #region Public Methods
 
     /// <summary>
-    /// Main workflow: reads clipboard and performs real translation
+    /// Main workflow: translates the provided source text
     /// </summary>
-    public async Task TranslateClipboardAsync()
+    public async Task TranslateAsync(string sourceText)
     {
         try
         {
@@ -118,31 +119,19 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
             IsLoading = true;
             CurrentTranslation = null;
 
-            // Small delay to allow clipboard to be populated by Ctrl+C
-            await Task.Delay(100);
-
-            // Read clipboard content
-            string clipboardText = string.Empty;
-            
-            // Clipboard access must be done on STA thread
-            if (Clipboard.ContainsText())
-            {
-                clipboardText = Clipboard.GetText();
-            }
-            
-            if (string.IsNullOrWhiteSpace(clipboardText))
+            if (string.IsNullOrWhiteSpace(sourceText))
             {
                 CurrentTranslation = new TranslationModel
                 {
                     OriginalText = string.Empty,
-                    MainTranslation = "[No text in clipboard]",
+                    MainTranslation = "[No text selected]",
                     ProviderName = _translationService.ProviderName
                 };
                 return;
             }
 
             // Perform real translation
-            CurrentTranslation = await _translationService.TranslateAsync(clipboardText, _targetLanguage);
+            CurrentTranslation = await _translationService.TranslateAsync(sourceText, _targetLanguage);
         }
         catch (Exception ex)
         {

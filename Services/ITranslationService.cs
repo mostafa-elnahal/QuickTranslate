@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using QuickTranslate.Models;
 
 namespace QuickTranslate.Services;
 

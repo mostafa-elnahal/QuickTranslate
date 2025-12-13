@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:QuickTranslate"
+        xmlns:converters="clr-namespace:QuickTranslate.Converters"
         mc:Ignorable="d"
         Title="QuickTranslate"
         Height="Auto" Width="600"
@@ -46,7 +47,7 @@
     
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
-        <local:BoolToFlowDirectionConverter x:Key="BoolToFlowDirection"/>
+        <converters:BoolToFlowDirectionConverter x:Key="BoolToFlowDirection"/>
     </Window.Resources>
     
     <Border Background="Black" 

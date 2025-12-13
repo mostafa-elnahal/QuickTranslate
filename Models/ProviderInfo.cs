@@ -1,4 +1,4 @@
-namespace QuickTranslate;
+namespace QuickTranslate.Models;
 
 /// <summary>
 /// Model for displaying a translation provider in the UI.

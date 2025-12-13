@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace QuickTranslate;
+namespace QuickTranslate.Models;
 
 public class TranslationModel
 {

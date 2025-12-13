@@ -1,7 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 
-namespace QuickTranslate;
+namespace QuickTranslate.Interop;
 
 /// <summary>
 /// P/Invoke wrapper for Win32 API functions
@@ -38,6 +38,42 @@ public static class NativeMethods
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+
+    // Clipboard APIs for history exclusion
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern uint RegisterClipboardFormat(string lpszFormat);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool OpenClipboard(IntPtr hWndNewOwner);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool CloseClipboard();
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool EmptyClipboard();
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern IntPtr SetClipboardData(uint uFormat, IntPtr hMem);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern IntPtr GlobalAlloc(uint uFlags, UIntPtr dwBytes);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern IntPtr GlobalLock(IntPtr hMem);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern bool GlobalUnlock(IntPtr hMem);
+
+    #endregion
+
+    #region Clipboard Constants
+
+    public const uint CF_UNICODETEXT = 13;
+    public const uint GMEM_MOVEABLE = 0x0002;
+
+    // Format names for clipboard history exclusion
+    public const string EXCLUDE_FROM_HISTORY = "ExcludeClipboardContentFromMonitorProcessing";
+    public const string CAN_INCLUDE_IN_HISTORY = "CanIncludeInClipboardHistory";
 
     #endregion
 

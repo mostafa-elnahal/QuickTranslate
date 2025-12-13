@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 
-namespace QuickTranslate;
+namespace QuickTranslate.Converters;
 
 /// <summary>
 /// Converts a boolean IsRtl value to FlowDirection.

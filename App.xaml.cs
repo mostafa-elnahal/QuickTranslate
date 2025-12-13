@@ -5,6 +5,8 @@ using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Interop;
 using Application = System.Windows.Application;
+using QuickTranslate.Interop;
+using QuickTranslate.Helpers;
 
 namespace QuickTranslate;
 
@@ -73,7 +75,7 @@ public partial class App : Application
         {
             Icon = CreateTrayIcon(),
             Visible = true,
-            Text = "QuickTranslate - Press Ctrl+Shift+T to translate"
+            Text = "QuickTranslate - Press F1 to translate"
         };
 
         // Create context menu
@@ -132,7 +134,7 @@ public partial class App : Application
     }
 
     /// <summary>
-    /// Registers the global hotkey (Ctrl + Shift + T)
+    /// Registers the global hotkey (F1)
     /// </summary>
     private void RegisterGlobalHotkey()
     {
@@ -146,17 +148,17 @@ public partial class App : Application
         _hwndSource = HwndSource.FromHwnd(handle);
         _hwndSource?.AddHook(WndProc);
 
-        // Register hotkey: Ctrl + Shift + T (0x54 is 'T')
+        // Register hotkey: F1 (0x70) with no modifiers
         bool success = NativeMethods.RegisterHotKey(
             handle,
             HOTKEY_ID,
-            NativeMethods.MOD_CONTROL | NativeMethods.MOD_SHIFT,
-            0x54); // 'T' key
+            0, // No modifiers
+            0x70); // F1 key
 
         if (!success)
         {
             System.Windows.MessageBox.Show(
-                "Failed to register hotkey Ctrl+Shift+T. It may be in use by another application.",
+                "Failed to register hotkey F1. It may be in use by another application.",
                 "QuickTranslate",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
@@ -201,16 +203,97 @@ public partial class App : Application
     /// </summary>
     private async void OnHotkeyPressed()
     {
-        // Simulate Ctrl+C to copy selected text
-        NativeMethods.SimulateCopyKeystroke();
-
-        // Small async delay to ensure clipboard is populated (non-blocking)
-        await Task.Delay(50);
-
-        // Show window and start translation
-        await Dispatcher.InvokeAsync(() =>
+        // Run capture on STA thread (required for clipboard/SendKeys)
+        string capturedText = string.Empty;
+        
+        await Task.Run(() =>
         {
-            _mainWindow?.ShowAndTranslate();
+            var thread = new System.Threading.Thread(() =>
+            {
+                capturedText = CaptureSelection();
+            });
+            thread.SetApartmentState(System.Threading.ApartmentState.STA);
+            thread.Start();
+            thread.Join();
         });
+        
+        // Show window and translate on UI thread
+        _mainWindow?.ShowAndTranslate(capturedText);
+    }
+    
+    /// <summary>
+    /// EXACT copy of ClipboardCaptureStrategy.Capture() from console app
+    /// </summary>
+    private string CaptureSelection()
+    {
+        Log("Starting Clipboard Strategy...");
+        
+        // 1. Preserve ALL clipboard formats
+        ClipboardHelper.ClipboardSnapshot? snapshot = null;
+        try 
+        {
+            snapshot = ClipboardHelper.SaveSnapshot();
+            if (snapshot.HasContent)
+            {
+                Log($"Saved clipboard snapshot - Text: {snapshot.Text != null}, Files: {snapshot.Files?.Count ?? 0}, Image: {snapshot.Image != null}, HTML: {snapshot.Html != null}, RTF: {snapshot.Rtf != null}");
+            }
+            else
+            {
+                Log("Clipboard was empty.");
+            }
+        }
+        catch (Exception ex) 
+        {
+            Log($"Failed to save clipboard: {ex.Message}");
+        }
+
+        System.Threading.Thread.Sleep(50);
+        
+        // 2. Clear & Copy selection
+        ClipboardHelper.ClearSafe();
+        System.Windows.Forms.SendKeys.SendWait("^c");
+
+        // 3. Wait for clipboard to populate
+        // GetTextWithTimeout handles retries and exceptions internally
+        string capturedText = ClipboardHelper.GetTextWithTimeout();
+        if (!string.IsNullOrEmpty(capturedText))
+        {
+            Log($"Captured: {capturedText}");
+        }
+
+        // 4. Restore original clipboard WITHOUT adding to history
+        try
+        {
+            if (snapshot != null && snapshot.HasContent)
+            {
+                Log("Restoring clipboard without history...");
+                ClipboardHelper.RestoreWithoutHistory(snapshot);
+            }
+            else
+            {
+                Log("Clearing clipboard without history...");
+                ClipboardHelper.ClearWithoutHistory();
+            }
+        }
+        finally
+        {
+            snapshot?.Dispose();
+        }
+
+        if (string.IsNullOrEmpty(capturedText))
+        {
+            Log("Clipboard capture failed or was empty.");
+        }
+
+        return capturedText;
+    }
+
+    private void Log(string message)
+    {
+        try
+        {
+            System.IO.File.AppendAllText("debug.log", $"{DateTime.Now}: {message}{Environment.NewLine}");
+        }
+        catch { }
     }
 }

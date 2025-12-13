@@ -8,6 +8,9 @@
 *.userosscache
 *.sln.docstates
 
+# local docs
+docs/
+
 # debugging files
 crash_log.txt   
 

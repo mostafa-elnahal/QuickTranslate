@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using GTranslate.Translators;
+using QuickTranslate.Models;
 
 namespace QuickTranslate.Services;
 
