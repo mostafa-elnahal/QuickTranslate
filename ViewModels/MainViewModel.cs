@@ -1,31 +1,22 @@
 using System;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows;
 using QuickTranslate.Services;
 using QuickTranslate.Models;
 
-namespace QuickTranslate;
+namespace QuickTranslate.ViewModels;
 
 /// <summary>
 /// ViewModel for the main translation window
 /// </summary>
-public class MainViewModel : INotifyPropertyChanged, IDisposable
+public class MainViewModel : ViewModelBase, IDisposable
 {
     private readonly ITranslationService _translationService;
     private bool _isLoading;
     private TranslationModel? _currentTranslation;
     private Visibility _windowVisibility = Visibility.Collapsed;
     private string _targetLanguage = "ar"; // Default to Arabic
-
-    public event PropertyChangedEventHandler? PropertyChanged;
-
-    public MainViewModel() : this(new GTranslateService())
-    {
-    }
 
     public MainViewModel(ITranslationService translationService)
     {
@@ -48,53 +39,25 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
     public bool IsLoading
     {
         get => _isLoading;
-        set
-        {
-            if (_isLoading != value)
-            {
-                _isLoading = value;
-                OnPropertyChanged();
-            }
-        }
+        set => SetProperty(ref _isLoading, value);
     }
 
     public TranslationModel? CurrentTranslation
     {
         get => _currentTranslation;
-        set
-        {
-            if (_currentTranslation != value)
-            {
-                _currentTranslation = value;
-                OnPropertyChanged();
-            }
-        }
+        set => SetProperty(ref _currentTranslation, value);
     }
 
     public Visibility WindowVisibility
     {
         get => _windowVisibility;
-        set
-        {
-            if (_windowVisibility != value)
-            {
-                _windowVisibility = value;
-                OnPropertyChanged();
-            }
-        }
+        set => SetProperty(ref _windowVisibility, value);
     }
 
     public string TargetLanguage
     {
         get => _targetLanguage;
-        set
-        {
-            if (_targetLanguage != value)
-            {
-                _targetLanguage = value;
-                OnPropertyChanged();
-            }
-        }
+        set => SetProperty(ref _targetLanguage, value);
     }
 
     public string CurrentProviderName => _translationService.ProviderName;
@@ -174,15 +137,6 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         WindowVisibility = Visibility.Collapsed;
         CurrentTranslation = null;
         IsLoading = false;
-    }
-
-    #endregion
-
-    #region INotifyPropertyChanged
-
-    protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
-    {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 
     #endregion
