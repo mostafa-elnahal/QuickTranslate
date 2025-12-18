@@ -9,6 +9,7 @@
         mc:Ignorable="d"
         Title="QuickTranslate"
         Height="Auto" Width="600"
+        MinWidth="300" MinHeight="100"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
@@ -63,12 +64,7 @@
         
         <!-- Main Container -->
         <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
-            
-            <StackPanel Grid.Row="0">
+            <StackPanel>
                 
                 <!-- Loading State -->
                 <StackPanel Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}"
@@ -175,7 +171,7 @@
             </StackPanel>
             
             <!-- Footer / Providers Bar (Auto-Hide) -->
-            <ItemsControl Grid.Row="1" ItemsSource="{Binding Providers}" Margin="12,4,12,0">
+            <ItemsControl ItemsSource="{Binding Providers}" Margin="0" VerticalAlignment="Bottom">
                 <ItemsControl.Style>
                     <Style TargetType="ItemsControl">
                         <Setter Property="Opacity" Value="0"/>
@@ -213,11 +209,11 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Border Margin="2,0" Padding="6,6" Cursor="Hand" 
+                        <Border Margin="0" Padding="6,6" Cursor="Hand" 
                                 Background="{StaticResource SurfaceBrush}" 
                                 BorderThickness="0,2,0,0"
                                 BorderBrush="{Binding BrandColor}"
-                                CornerRadius="4"
+                                CornerRadius="0"
                                 MouseLeftButtonDown="Provider_Click">
                             <Border.Style>
                                 <Style TargetType="Border">

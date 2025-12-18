@@ -15,7 +15,6 @@ public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel;
     private readonly IWindowPositioningService _positioningService;
-    private readonly DispatcherTimer _autoHideTimer;
 
     // Default constructor for XAML designer support (optional/fake)
     public MainWindow()
@@ -23,7 +22,6 @@ public partial class MainWindow : Window
         InitializeComponent();
         _viewModel = null!;
         _positioningService = null!;
-        _autoHideTimer = null!;
     }
 
     public MainWindow(MainViewModel viewModel, IWindowPositioningService positioningService)
@@ -33,29 +31,6 @@ public partial class MainWindow : Window
         _viewModel = viewModel;
         _positioningService = positioningService;
         DataContext = _viewModel;
-
-        // Setup auto-hide timer (20 seconds)
-        _autoHideTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromSeconds(20)
-        };
-        _autoHideTimer.Tick += AutoHideTimer_Tick;
-
-        // Subscribe to visibility changes to start/stop timer
-        _viewModel.PropertyChanged += (s, e) =>
-        {
-            if (e.PropertyName == nameof(MainViewModel.WindowVisibility))
-            {
-                if (_viewModel.WindowVisibility == Visibility.Visible)
-                {
-                    _autoHideTimer.Start();
-                }
-                else
-                {
-                    _autoHideTimer.Stop();
-                }
-            }
-        };
     }
 
     /// <summary>
@@ -81,14 +56,6 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// Auto-hide timer tick handler
-    /// </summary>
-    private void AutoHideTimer_Tick(object? sender, EventArgs e)
-    {
-        _viewModel.HideWindow();
-        _autoHideTimer.Stop();
-    }
 
     private void CloseButton_Click(object sender, RoutedEventArgs e)
     {
