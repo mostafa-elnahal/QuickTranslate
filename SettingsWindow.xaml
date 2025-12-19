@@ -1,0 +1,266 @@
+<Window x:Class="QuickTranslate.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Settings"
+        Width="600"
+        Height="400"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="32" ResizeBorderThickness="0" GlassFrameThickness="0" CornerRadius="8"/>
+    </WindowChrome.WindowChrome>
+
+    <Border Background="{StaticResource WindowBackgroundBrush}" 
+            BorderBrush="{StaticResource BorderBrush}" 
+            BorderThickness="1" 
+            CornerRadius="8">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="32"/> <!-- Compact Title Bar -->
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="48"/> <!-- Compact Footer -->
+            </Grid.RowDefinitions>
+
+            <!-- Title Bar -->
+            <Border Grid.Row="0" Background="{StaticResource SurfaceBrush}" CornerRadius="8,8,0,0">
+                <Grid>
+                    <TextBlock Text="Options" 
+                               Foreground="{StaticResource TextPrimaryBrush}" 
+                               FontSize="{StaticResource FontSizeLarge}"
+                               VerticalAlignment="Center" 
+                               Margin="12,0,0,0"/>
+                    <Button Style="{StaticResource WindowHeaderCloseButtonStyle}" 
+                            Click="CloseButton_Click" 
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            WindowChrome.IsHitTestVisibleInChrome="True"
+                            ToolTip="Close">
+                        <Path Style="{StaticResource IconPathStyle}"
+                              Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"
+                              Height="10" Width="10"/>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- Main Content -->
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Left Sidebar -->
+                <Border Grid.Column="0" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0" Background="#252526">
+                    <ListBox ItemsSource="{Binding Categories}"
+                             SelectedItem="{Binding SelectedCategory}"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             Padding="0,4"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+                                <Setter Property="Padding" Value="12,6"/>
+                                <Setter Property="Margin" Value="0"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="BorderThickness" Value="2,0,0,0"/>
+                                <Setter Property="BorderBrush" Value="Transparent"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border x:Name="Bd" 
+                                                    Background="Transparent" 
+                                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="#3E3E42"/>
+                                                    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                                                </Trigger>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="#333333"/>
+                                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                                    <Setter Property="Foreground" Value="White"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
+                </Border>
+
+                <!-- Right Content Area -->
+                <Grid Grid.Column="1" Margin="12,12,12,0">
+                    
+                    <!-- Basics Section -->
+                    <StackPanel Visibility="{Binding SelectedCategory, Converter={StaticResource CategoryToVisibility}, ConverterParameter=Basics}">
+                        <GroupBox Header="General" Style="{StaticResource SettingsGroupBoxStyle}">
+                            <Grid Margin="12,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="140"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="30"/>
+                                    <RowDefinition Height="30"/>
+                                </Grid.RowDefinitions>
+                                
+                                <CheckBox Grid.Row="0" Grid.ColumnSpan="2" 
+                                          Content="Start with Windows" 
+                                          IsChecked="{Binding StartWithWindows}"
+                                          Style="{StaticResource SettingsCheckBoxStyle}"
+                                          Margin="0,4,0,8"/>
+                                
+                                <TextBlock Grid.Row="1" Text="Window opacity:" VerticalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <Slider Grid.Row="1" Grid.Column="1" 
+                                        Minimum="0.3" Maximum="1.0" 
+                                        Value="{Binding WindowOpacity}"
+                                        VerticalAlignment="Center"
+                                        TickFrequency="0.1"
+                                        IsSnapToTickEnabled="True"/>
+                            </Grid>
+                        </GroupBox>
+                    </StackPanel>
+
+                    <!-- Hotkeys Section -->
+                    <StackPanel Visibility="{Binding SelectedCategory, Converter={StaticResource CategoryToVisibility}, ConverterParameter=Hotkeys}">
+                        <GroupBox Header="Shortcuts" Style="{StaticResource SettingsGroupBoxStyle}">
+                            <Grid Margin="12,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="140"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="30"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Text="Translation hotkey:" VerticalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" 
+                                         Text="{Binding Hotkey}" 
+                                         IsReadOnly="True"
+                                         Style="{StaticResource SettingsTextBoxStyle}"
+                                         VerticalAlignment="Center"/>
+                            </Grid>
+                        </GroupBox>
+                    </StackPanel>
+
+                    <!-- Languages Section -->
+                    <StackPanel Visibility="{Binding SelectedCategory, Converter={StaticResource CategoryToVisibility}, ConverterParameter=Languages}">
+                        <GroupBox Header="Auto-detect languages" Style="{StaticResource SettingsGroupBoxStyle}">
+                            <Grid Margin="12,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="140"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="30"/>
+                                    <RowDefinition Height="30"/>
+                                </Grid.RowDefinitions>
+                                
+                                <TextBlock Grid.Row="0" Text="Source language:" VerticalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <ComboBox Grid.Row="0" Grid.Column="1" 
+                                          ItemsSource="{Binding AvailableLanguages}"
+                                          SelectedValue="{Binding DefaultSourceLanguage}"
+                                          SelectedValuePath="Code"
+                                          DisplayMemberPath="DisplayName"
+                                          Style="{StaticResource SettingsComboBoxStyle}"
+                                          VerticalAlignment="Center"
+                                          Margin="0,2"/>
+
+                                <TextBlock Grid.Row="1" Text="Target language:" VerticalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <ComboBox Grid.Row="1" Grid.Column="1" 
+                                          ItemsSource="{Binding AvailableLanguages}"
+                                          SelectedValue="{Binding DefaultTargetLanguage}"
+                                          SelectedValuePath="Code"
+                                          DisplayMemberPath="DisplayName"
+                                          Style="{StaticResource SettingsComboBoxStyle}"
+                                          VerticalAlignment="Center"
+                                          Margin="0,2"/>
+                            </Grid>
+                        </GroupBox>
+                        
+                        <GroupBox Header="Services" Style="{StaticResource SettingsGroupBoxStyle}">
+                            <Grid Margin="12,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="140"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="30"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Text="Default provider:" VerticalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <ComboBox Grid.Row="0" Grid.Column="1" 
+                                          ItemsSource="{Binding AvailableProviders}"
+                                          SelectedItem="{Binding DefaultProvider}"
+                                          Style="{StaticResource SettingsComboBoxStyle}"
+                                          VerticalAlignment="Center"/>
+                            </Grid>
+                        </GroupBox>
+                    </StackPanel>
+
+                    <!-- Appearance Section -->
+                    <StackPanel Visibility="{Binding SelectedCategory, Converter={StaticResource CategoryToVisibility}, ConverterParameter=Appearance}">
+                        <GroupBox Header="Theme" Style="{StaticResource SettingsGroupBoxStyle}">
+                            <TextBlock Text="Theme customization coming soon." 
+                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       FontStyle="Italic"
+                                       Margin="12,8"/>
+                        </GroupBox>
+                    </StackPanel>
+
+                    <!-- About Section -->
+                    <StackPanel Visibility="{Binding SelectedCategory, Converter={StaticResource CategoryToVisibility}, ConverterParameter=About}">
+                         <GroupBox Header="About" Style="{StaticResource SettingsGroupBoxStyle}">
+                            <StackPanel Margin="12,8">
+                                <TextBlock Text="QuickTranslate v1.0.0" 
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           FontWeight="Bold"
+                                           Margin="0,0,0,4"/>
+                                <TextBlock Text="A fast, lightweight translation tool." 
+                                           Foreground="{StaticResource TextSecondaryBrush}"/>
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+
+            <!-- Footer Buttons -->
+            <Border Grid.Row="2" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" CornerRadius="0,0,8,8">
+                <StackPanel Orientation="Horizontal" 
+                            HorizontalAlignment="Right" 
+                            VerticalAlignment="Center"
+                            Margin="0,0,12,0">
+                    <Button Content="Save" 
+                            Command="{Binding SaveCommand}"
+                            MinWidth="70"
+                            Padding="12,6"
+                            Margin="0,0,8,0"
+                            Style="{StaticResource WindowHeaderButtonStyle}"
+                            Background="{StaticResource AccentBrush}"
+                            Foreground="White"/>
+                    <Button Content="Cancel" 
+                            Command="{Binding CancelCommand}"
+                            MinWidth="70"
+                            Padding="12,6"
+                            Style="{StaticResource WindowHeaderButtonStyle}"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

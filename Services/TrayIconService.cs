@@ -9,8 +9,9 @@ public class TrayIconService : ITrayIconService
 {
     private NotifyIcon? _trayIcon;
 
-    public event EventHandler? ShowWindowRequested;
+
     public event EventHandler? ExitRequested;
+    public event EventHandler? SettingsRequested;
 
     public void Initialize()
     {
@@ -23,19 +24,19 @@ public class TrayIconService : ITrayIconService
 
         var contextMenu = new ContextMenuStrip();
         
-        var showItem = new ToolStripMenuItem("Show Window");
-        showItem.Click += (s, e) => ShowWindowRequested?.Invoke(this, EventArgs.Empty);
+        var settingsItem = new ToolStripMenuItem("Settings...");
+        settingsItem.Click += (s, e) => SettingsRequested?.Invoke(this, EventArgs.Empty);
         
         var exitItem = new ToolStripMenuItem("Exit");
         exitItem.Click += (s, e) => ExitRequested?.Invoke(this, EventArgs.Empty);
 
-        contextMenu.Items.Add(showItem);
+        contextMenu.Items.Add(settingsItem);
         contextMenu.Items.Add(new ToolStripSeparator());
         contextMenu.Items.Add(exitItem);
 
         _trayIcon.ContextMenuStrip = contextMenu;
 
-        _trayIcon.DoubleClick += (s, e) => ShowWindowRequested?.Invoke(this, EventArgs.Empty);
+
     }
 
     public void SetVisible(bool visible)

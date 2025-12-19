@@ -19,6 +19,7 @@ public partial class App : Application
     private IHotkeyService? _hotkeyService;
     private ITrayIconService? _trayIconService;
     private IWindowPositioningService? _positioningService;
+    private ISettingsService? _settingsService;
 
     public App()
     {
@@ -42,6 +43,7 @@ public partial class App : Application
     private void Application_Startup(object sender, StartupEventArgs e)
     {
         // Initialize Services
+        _settingsService = new SettingsService();
         _clipboardService = new ClipboardService();
         _hotkeyService = new HotkeyService();
         _trayIconService = new TrayIconService();
@@ -75,13 +77,37 @@ public partial class App : Application
 
         _trayIconService.Initialize();
 
-        _trayIconService.ShowWindowRequested += (s, args) =>
-        {
-            _mainWindow?.Show();
-            _mainWindow?.Activate();
-        };
+
 
         _trayIconService.ExitRequested += (s, args) => Shutdown();
+
+        _trayIconService.SettingsRequested += (s, args) => OpenSettingsWindow();
+    }
+
+    private SettingsWindow? _settingsWindow;
+
+    private void OpenSettingsWindow()
+    {
+        if (_settingsService == null) return;
+
+        // If window is already open, just focus it
+        if (_settingsWindow != null)
+        {
+            _settingsWindow.Activate();
+            if (_settingsWindow.WindowState == WindowState.Minimized)
+            {
+                _settingsWindow.WindowState = WindowState.Normal;
+            }
+            return;
+        }
+
+        var viewModel = new SettingsViewModel(_settingsService);
+        _settingsWindow = new SettingsWindow(viewModel);
+        
+        // Handle closure to clear reference
+        _settingsWindow.Closed += (s, args) => _settingsWindow = null;
+        
+        _settingsWindow.Show();
     }
 
     private void RegisterGlobalHotkey()
