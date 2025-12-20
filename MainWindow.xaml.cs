@@ -15,6 +15,7 @@ public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel;
     private readonly IWindowPositioningService _positioningService;
+    private readonly IWindowSizingService _sizingService;
 
     // Default constructor for XAML designer support (optional/fake)
     public MainWindow()
@@ -22,14 +23,16 @@ public partial class MainWindow : Window
         InitializeComponent();
         _viewModel = null!;
         _positioningService = null!;
+        _sizingService = null!;
     }
 
-    public MainWindow(MainViewModel viewModel, IWindowPositioningService positioningService)
+    public MainWindow(MainViewModel viewModel, IWindowPositioningService positioningService, IWindowSizingService sizingService)
     {
         InitializeComponent();
 
         _viewModel = viewModel;
         _positioningService = positioningService;
+        _sizingService = sizingService;
         DataContext = _viewModel;
     }
 
@@ -71,6 +74,7 @@ public partial class MainWindow : Window
     {
         base.OnSourceInitialized(e);
         DisableMaximization();
+        _sizingService.ApplySize(this);
     }
 
     private void DisableMaximization()
@@ -88,6 +92,15 @@ public partial class MainWindow : Window
         if (e.ChangedButton == MouseButton.Left)
         {
             DragMove();
+        }
+    }
+
+    private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        // Save size when user resizes the window
+        if (IsVisible && WindowState == WindowState.Normal)
+        {
+            _sizingService.SaveSize(this);
         }
     }
 

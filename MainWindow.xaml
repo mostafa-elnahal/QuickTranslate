@@ -19,7 +19,8 @@
         ResizeMode="CanResize"
         Visibility="{Binding WindowVisibility}"
         SizeToContent="Height"
-        MouseLeftButtonDown="Window_MouseLeftButtonDown">
+        MouseLeftButtonDown="Window_MouseLeftButtonDown"
+        SizeChanged="Window_SizeChanged">
 
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="0" ResizeBorderThickness="5" />

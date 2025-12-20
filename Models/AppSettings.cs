@@ -34,4 +34,14 @@ public class AppSettings
     /// The hotkey combination string (e.g., "F1").
     /// </summary>
     public string Hotkey { get; set; } = "F1";
+
+    /// <summary>
+    /// Saved window width. Null = first launch (use default).
+    /// </summary>
+    public double? SavedWindowWidth { get; set; } = null;
+
+    /// <summary>
+    /// Saved window height. Null = first launch (use SizeToContent with MaxHeight).
+    /// </summary>
+    public double? SavedWindowHeight { get; set; } = null;
 }

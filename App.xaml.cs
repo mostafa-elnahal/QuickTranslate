@@ -13,12 +13,13 @@ public partial class App : Application
 {
     private MainWindow? _mainWindow;
     private MainViewModel? _viewModel;
-    
+
     // Services
     private IClipboardService? _clipboardService;
     private IHotkeyService? _hotkeyService;
     private ITrayIconService? _trayIconService;
     private IWindowPositioningService? _positioningService;
+    private IWindowSizingService? _sizingService;
     private ISettingsService? _settingsService;
 
     public App()
@@ -33,7 +34,7 @@ public partial class App : Application
         {
             errorMessage += $"\n\nInner Exception: {e.Exception.InnerException.Message}";
         }
-        
+
         System.IO.File.WriteAllText("crash_log.txt", errorMessage);
         MessageBox.Show($"Application Crashed. Log saved to crash_log.txt.\n{e.Exception.Message}", "QuickTranslate Error");
         e.Handled = true; // Prevent app from closing immediately
@@ -48,13 +49,14 @@ public partial class App : Application
         _hotkeyService = new HotkeyService();
         _trayIconService = new TrayIconService();
         _positioningService = new WindowPositioningService();
+        _sizingService = new WindowSizingService(_settingsService);
 
         // Initialize ViewModel (Composition Root)
         var translationService = new GTranslateService();
         _viewModel = new MainViewModel(translationService);
 
         // Create main window but don't show it
-        _mainWindow = new MainWindow(_viewModel, _positioningService);
+        _mainWindow = new MainWindow(_viewModel, _positioningService, _sizingService);
 
         // Setup system tray icon
         SetupTrayIcon();
@@ -103,10 +105,10 @@ public partial class App : Application
 
         var viewModel = new SettingsViewModel(_settingsService);
         _settingsWindow = new SettingsWindow(viewModel);
-        
+
         // Handle closure to clear reference
         _settingsWindow.Closed += (s, args) => _settingsWindow = null;
-        
+
         _settingsWindow.Show();
     }
 
@@ -119,7 +121,7 @@ public partial class App : Application
         // MainWindow is hidden, so we need to ensure handle exists.
         // HACK: Show and Hide to ensure handle, or use WindowInteropHelper.EnsureHandle inside service if it accepts Window.
         // The service internally uses WindowInteropHelper.EnsureHandle, so passing `_mainWindow` is sufficient.
-        
+
         _hotkeyService.HotkeyPressed += OnHotkeyPressed;
         _hotkeyService.Register(_mainWindow);
     }
@@ -136,7 +138,7 @@ public partial class App : Application
 
         // Run capture on STA thread (required for clipboard/SendKeys)
         string capturedText = string.Empty;
-        
+
         await Task.Run(() =>
         {
             var thread = new System.Threading.Thread(() =>
@@ -147,7 +149,7 @@ public partial class App : Application
             thread.Start();
             thread.Join();
         });
-        
+
         // Show window and translate on UI thread
         _mainWindow?.ShowAndTranslate(capturedText);
     }
