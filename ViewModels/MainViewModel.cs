@@ -18,6 +18,17 @@ public class MainViewModel : ViewModelBase, IDisposable
     private Visibility _windowVisibility = Visibility.Collapsed;
     private string _targetLanguage = "ar"; // Default to Arabic
 
+    /// <summary>
+    /// Generation counter to track translation sessions.
+    /// Incremented on each new translation to detect stale async callbacks.
+    /// </summary>
+    private int _translationGeneration = 0;
+
+    /// <summary>
+    /// Gets the current translation generation. Used to guard against race conditions.
+    /// </summary>
+    public int TranslationGeneration => _translationGeneration;
+
     public MainViewModel(ITranslationService translationService)
     {
         _translationService = translationService;
@@ -73,6 +84,9 @@ public class MainViewModel : ViewModelBase, IDisposable
     {
         try
         {
+            // Increment generation to invalidate any stale callbacks from previous translations
+            _translationGeneration++;
+
             // Don't show window yet to avoid flicker
             WindowVisibility = Visibility.Collapsed;
             CurrentTranslation = null;
@@ -90,7 +104,7 @@ public class MainViewModel : ViewModelBase, IDisposable
 
             // Perform real translation
             CurrentTranslation = await _translationService.TranslateAsync(sourceText, _targetLanguage);
-            
+
             // Note: View will handle making window visible after layout update
         }
         catch (Exception ex)
@@ -111,13 +125,13 @@ public class MainViewModel : ViewModelBase, IDisposable
     public void SetProvider(string providerName)
     {
         _translationService.SetProvider(providerName);
-        
+
         // Update selection state in Providers
         foreach (var p in Providers)
         {
             p.IsSelected = p.Name == providerName;
         }
-        
+
         OnPropertyChanged(nameof(CurrentProviderName));
         OnPropertyChanged(nameof(Providers));
     }
@@ -127,6 +141,8 @@ public class MainViewModel : ViewModelBase, IDisposable
     /// </summary>
     public void HideWindow()
     {
+        // Increment generation to invalidate any in-flight translation callbacks
+        _translationGeneration++;
         WindowVisibility = Visibility.Collapsed;
         CurrentTranslation = null;
     }

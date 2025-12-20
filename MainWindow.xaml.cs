@@ -42,32 +42,41 @@ public partial class MainWindow : Window
     public async void ShowAndTranslate(string selectedText)
     {
         // 1. Start translation (Window is Collapsed from ViewModel start)
+        // TranslateAsync increments the generation at the start
         await _viewModel.TranslateAsync(selectedText);
 
-        // 2. Prepare for sizing: Make visible but transparent
+        // 2. Capture generation AFTER translation completes
+        // This is the generation that this translation belongs to
+        int myGeneration = _viewModel.TranslationGeneration;
+
+        // 3. Prepare for sizing: Make visible but transparent
         // This forces WPF to calculate the size based on the new content
         Opacity = 0;
         _viewModel.WindowVisibility = Visibility.Visible;
 
-        // 3. Force Layout Update
-        // We use Dispatcher priority Render to ensure layout is calculated before we measure/move
-        await Dispatcher.InvokeAsync(() =>
+        // 4. Force Layout Update (synchronous since we're already on UI thread)
+        // Safety Check: Reset WindowState if it somehow got Maximized (fixes crash with ShowActivated=False)
+        if (WindowState == WindowState.Maximized)
         {
-            // Safety Check: Reset WindowState if it somehow got Maximized (fixes crash with ShowActivated=False)
-            if (WindowState == WindowState.Maximized)
-            {
-                WindowState = WindowState.Normal;
-            }
+            WindowState = WindowState.Normal;
+        }
 
-            // Force layout update to get correct ActualWidth/Height
-            UpdateLayout();
+        // Force layout update to get correct ActualWidth/Height
+        UpdateLayout();
 
-            // 4. Position window near mouse cursor using REAL size
-            _positioningService.PositionNearCursor(this);
+        // 5. Final guard before showing (in case something changed during layout)
+        if (_viewModel.TranslationGeneration != myGeneration)
+        {
+            Opacity = 0;
+            _viewModel.WindowVisibility = Visibility.Collapsed;
+            return;
+        }
 
-            // 5. Show instantly
-            Opacity = 1.0;
-        }, DispatcherPriority.Render);
+        // 6. Position window near mouse cursor using REAL size
+        _positioningService.PositionNearCursor(this);
+
+        // 7. Show instantly
+        Opacity = 1.0;
     }
 
     protected override void OnSourceInitialized(EventArgs e)
