@@ -9,7 +9,15 @@ namespace QuickTranslate.Services;
 /// </summary>
 public class TranslatorFactory : ITranslatorFactory
 {
-    private static readonly string[] _availableProviders = ["Google", "Bing", "Microsoft", "Yandex"];
+    private static readonly string[] _availableProviders = [
+        "Google",
+        "Bing",
+        "Microsoft",
+        "Yandex"
+#if DEBUG
+        , "Test"
+#endif
+    ];
 
     public string[] AvailableProviders => _availableProviders;
 
@@ -26,6 +34,9 @@ public class TranslatorFactory : ITranslatorFactory
             "Bing" => new BingTranslator(),
             "Microsoft" => new MicrosoftTranslator(),
             "Yandex" => new YandexTranslator(),
+#if DEBUG
+            "Test" => new TestTranslator(),
+#endif
             _ => throw new ArgumentException($"Unknown provider: {providerName}. Available: {string.Join(", ", _availableProviders)}")
         };
     }

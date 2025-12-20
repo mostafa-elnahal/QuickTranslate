@@ -8,7 +8,7 @@
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
         mc:Ignorable="d"
         Title="QuickTranslate"
-        Height="Auto" Width="600"
+        Width="600"
         MinWidth="300" MinHeight="100"
         WindowStyle="None"
         AllowsTransparency="True"
@@ -27,24 +27,8 @@
 
     <Window.Style>
         <Style TargetType="Window">
-            <Setter Property="Opacity" Value="0.9"/>
+            <Setter Property="Opacity" Value="1.0"/>
             <Setter Property="Background" Value="Transparent"/>
-            <Style.Triggers>
-                <EventTrigger RoutedEvent="MouseEnter">
-                    <BeginStoryboard>
-                        <Storyboard>
-                            <DoubleAnimation Storyboard.TargetProperty="Opacity" To="1.0" Duration="0:0:0.15"/>
-                        </Storyboard>
-                    </BeginStoryboard>
-                </EventTrigger>
-                <EventTrigger RoutedEvent="MouseLeave">
-                    <BeginStoryboard>
-                        <Storyboard>
-                            <DoubleAnimation Storyboard.TargetProperty="Opacity" To="0.9" Duration="0:0:0.15"/>
-                        </Storyboard>
-                    </BeginStoryboard>
-                </EventTrigger>
-            </Style.Triggers>
         </Style>
     </Window.Style>
     
@@ -59,25 +43,70 @@
             CornerRadius="8"
             Padding="0">
         <Border.Effect>
-            <DropShadowEffect Color="Black" BlurRadius="15" ShadowDepth="4" Opacity="0.4" Direction="270"/>
+            <DropShadowEffect Color="Black" BlurRadius="12" ShadowDepth="4" Opacity="0.4" Direction="270" RenderingBias="Performance"/>
         </Border.Effect>
         
         <!-- Main Container -->
         <Grid>
-            <StackPanel>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            
+            <!-- Header: Fixed, not scrollable (also serves as drag area) -->
+            <DockPanel Grid.Row="0" LastChildFill="False" Margin="0" DataContext="{Binding CurrentTranslation}">
+                <DockPanel.Style>
+                    <Style TargetType="DockPanel">
+                        <Setter Property="Visibility" Value="Visible"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding}" Value="{x:Null}">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </DockPanel.Style>
+                <TextBlock VerticalAlignment="Center" FontSize="{StaticResource FontSizeSmall}" Foreground="{StaticResource AccentBrush}" Margin="12,0,0,0">
+                    <Run Text="{Binding SourceLanguage, Mode=OneWay}" FontWeight="SemiBold"/> 
+                    <Run Text=" ➔ " Foreground="{StaticResource TextSecondaryBrush}"/> 
+                    <Run Text="{Binding TargetLanguage, Mode=OneWay}" FontWeight="SemiBold"/>
+                    <Run Text="  "/>
+                    <Run Text="{Binding ProviderName, Mode=OneWay}" Foreground="{StaticResource TextSecondaryBrush}"/>
+                </TextBlock>
                 
-                <!-- Loading State -->
-                <StackPanel Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center"
-                           MinHeight="50"
-                           Margin="0,20">
-                    <TextBlock Text="Loading..." 
-                               Foreground="{StaticResource TextSecondaryBrush}" 
-                               HorizontalAlignment="Center"/>
+                <!-- Header Icons -->
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
+                     <!-- Star (Placeholder) -->
+                    <Button Style="{StaticResource WindowHeaderButtonStyle}" ToolTip="Save to Favorites">
+                        <Path Style="{StaticResource IconPathStyle}"
+                              Data="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"/>
+                    </Button>
+                    
+                     <!-- Copy -->
+                    <Button Style="{StaticResource WindowHeaderButtonStyle}" ToolTip="Copy Translation">
+                        <Path Style="{StaticResource IconPathStyle}"
+                              Data="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z"/>
+                    </Button>
+                    
+                     <!-- Speaker (Placeholder) -->
+                    <Button Style="{StaticResource WindowHeaderButtonStyle}" ToolTip="Listen">
+                        <Path Style="{StaticResource IconPathStyle}"
+                              Data="M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.84 14,18.7V20.77C18,19.86 21,16.28 21,12C21,7.72 18,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.76 16.5,12M3,9V15H7L12,20V4L7,9H3Z"/>
+                    </Button>
+                    
+                     <!-- Close Button -->
+                    <Button Style="{StaticResource WindowHeaderCloseButtonStyle}" Click="CloseButton_Click" ToolTip="Close">
+                        <Path Style="{StaticResource IconPathStyle}"
+                              Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" 
+                              Height="10" Width="10"/>
+                    </Button>
                 </StackPanel>
-
-                <!-- Translation Content -->
+            </DockPanel>
+            
+            <!-- Scrollable Content Area -->
+            <ScrollViewer Grid.Row="1" 
+                          Style="{StaticResource SlimScrollViewerStyle}"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
                 <StackPanel DataContext="{Binding CurrentTranslation}">
                     <StackPanel.Style>
                         <Style TargetType="StackPanel">
@@ -89,53 +118,19 @@
                             </Style.Triggers>
                         </Style>
                     </StackPanel.Style>
-
-                    <!-- Header: Langs & Service -->
-                    <DockPanel LastChildFill="False" Margin="0">
-                        <TextBlock VerticalAlignment="Center" FontSize="{StaticResource FontSizeSmall}" Foreground="{StaticResource AccentBrush}" Margin="12,0,0,0">
-                            <Run Text="{Binding SourceLanguage, Mode=OneWay}" FontWeight="SemiBold"/> 
-                            <Run Text=" ➔ " Foreground="{StaticResource TextSecondaryBrush}"/> 
-                            <Run Text="{Binding TargetLanguage, Mode=OneWay}" FontWeight="SemiBold"/>
-                            <Run Text="  "/>
-                            <Run Text="{Binding ProviderName, Mode=OneWay}" Foreground="{StaticResource TextSecondaryBrush}"/>
-                        </TextBlock>
-                        
-                        <!-- Header Icons -->
-                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
-                             <!-- Star (Placeholder) -->
-                            <Button Style="{StaticResource WindowHeaderButtonStyle}" ToolTip="Save to Favorites">
-                                <Path Style="{StaticResource IconPathStyle}"
-                                      Data="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"/>
-                            </Button>
-                            
-                             <!-- Copy -->
-                            <Button Style="{StaticResource WindowHeaderButtonStyle}" ToolTip="Copy Translation">
-                                <Path Style="{StaticResource IconPathStyle}"
-                                      Data="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z"/>
-                            </Button>
-                            
-                             <!-- Speaker (Placeholder) -->
-                            <Button Style="{StaticResource WindowHeaderButtonStyle}" ToolTip="Listen">
-                                <Path Style="{StaticResource IconPathStyle}"
-                                      Data="M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.84 14,18.7V20.77C18,19.86 21,16.28 21,12C21,7.72 18,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.76 16.5,12M3,9V15H7L12,20V4L7,9H3Z"/>
-                            </Button>
-                            
-                             <!-- Close Button -->
-                            <Button Style="{StaticResource WindowHeaderCloseButtonStyle}" Click="CloseButton_Click" ToolTip="Close">
-                                <Path Style="{StaticResource IconPathStyle}"
-                                      Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" 
-                                      Height="10" Width="10"/>
-                            </Button>
-                        </StackPanel>
-                    </DockPanel>
+                    
                     <!-- Main Translated Word -->
-                    <TextBlock Text="{Binding MainTranslation}" 
-                               Foreground="{StaticResource TextPrimaryBrush}" 
-                               FontSize="18" 
-                               FontWeight="Medium"
-                               TextWrapping="Wrap"
-                               FlowDirection="{Binding IsRtl, Converter={StaticResource BoolToFlowDirection}}"
-                               Margin="12,0,12,8"/>
+                    <TextBox Text="{Binding MainTranslation, Mode=OneWay}" 
+                             Foreground="{StaticResource TextPrimaryBrush}" 
+                             FontSize="18" 
+                             FontWeight="Medium"
+                             TextWrapping="Wrap"
+                             IsReadOnly="True"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             IsInactiveSelectionHighlightEnabled="True"
+                             FlowDirection="{Binding IsRtl, Converter={StaticResource BoolToFlowDirection}}"
+                             Margin="12,0,12,8"/>
 
                     <!-- Dictionary Entries -->
                     <ItemsControl ItemsSource="{Binding DictionaryEntries}">
@@ -166,12 +161,11 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-
                 </StackPanel>
-            </StackPanel>
+            </ScrollViewer>
             
             <!-- Footer / Providers Bar (Auto-Hide) -->
-            <ItemsControl ItemsSource="{Binding Providers}" Margin="0" VerticalAlignment="Bottom">
+            <ItemsControl Grid.Row="1" ItemsSource="{Binding Providers}" Margin="0" VerticalAlignment="Bottom">
                 <ItemsControl.Style>
                     <Style TargetType="ItemsControl">
                         <Setter Property="Opacity" Value="0"/>
@@ -209,7 +203,7 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Border Margin="0" Padding="6,6" Cursor="Hand" 
+                        <Border Margin="0" Padding="6,3" Cursor="Hand" 
                                 Background="{StaticResource SurfaceBrush}" 
                                 BorderThickness="0,2,0,0"
                                 BorderBrush="{Binding BrandColor}"

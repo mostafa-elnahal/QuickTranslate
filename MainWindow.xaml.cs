@@ -27,7 +27,7 @@ public partial class MainWindow : Window
     public MainWindow(MainViewModel viewModel, IWindowPositioningService positioningService)
     {
         InitializeComponent();
-        
+
         _viewModel = viewModel;
         _positioningService = positioningService;
         DataContext = _viewModel;
@@ -38,11 +38,46 @@ public partial class MainWindow : Window
     /// </summary>
     public async void ShowAndTranslate(string selectedText)
     {
-        // Position window near mouse cursor using service
-        _positioningService.PositionNearCursor(this);
-
-        // Start translation workflow with captured text
+        // 1. Start translation (Window is Collapsed from ViewModel start)
         await _viewModel.TranslateAsync(selectedText);
+
+        // 2. Prepare for sizing: Make visible but transparent
+        // This forces WPF to calculate the size based on the new content
+        Opacity = 0;
+        _viewModel.WindowVisibility = Visibility.Visible;
+
+        // 3. Force Layout Update
+        // We use Dispatcher priority Render to ensure layout is calculated before we measure/move
+        await Dispatcher.InvokeAsync(() =>
+        {
+            // Safety Check: Reset WindowState if it somehow got Maximized (fixes crash with ShowActivated=False)
+            if (WindowState == WindowState.Maximized)
+            {
+                WindowState = WindowState.Normal;
+            }
+
+            // Force layout update to get correct ActualWidth/Height
+            UpdateLayout();
+
+            // 4. Position window near mouse cursor using REAL size
+            _positioningService.PositionNearCursor(this);
+
+            // 5. Show instantly
+            Opacity = 1.0;
+        }, DispatcherPriority.Render);
+    }
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        DisableMaximization();
+    }
+
+    private void DisableMaximization()
+    {
+        var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        var style = QuickTranslate.Interop.NativeMethods.GetWindowLong(hwnd, QuickTranslate.Interop.NativeMethods.GWL_STYLE);
+        QuickTranslate.Interop.NativeMethods.SetWindowLong(hwnd, QuickTranslate.Interop.NativeMethods.GWL_STYLE, style & ~QuickTranslate.Interop.NativeMethods.WS_MAXIMIZEBOX);
     }
 
     /// <summary>

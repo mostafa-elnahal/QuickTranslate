@@ -64,6 +64,21 @@ public static class NativeMethods
     [DllImport("kernel32.dll", SetLastError = true)]
     public static extern bool GlobalUnlock(IntPtr hMem);
 
+
+
+    [DllImport("user32.dll")]
+    public static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+    [DllImport("user32.dll")]
+    public static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
+    #endregion
+
+    #region Window Styles
+
+    public const int GWL_STYLE = -16;
+    public const int WS_MAXIMIZEBOX = 0x00010000;
+
     #endregion
 
     #region Clipboard Constants

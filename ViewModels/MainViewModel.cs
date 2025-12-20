@@ -13,7 +13,7 @@ namespace QuickTranslate.ViewModels;
 public class MainViewModel : ViewModelBase, IDisposable
 {
     private readonly ITranslationService _translationService;
-    private bool _isLoading;
+
     private TranslationModel? _currentTranslation;
     private Visibility _windowVisibility = Visibility.Collapsed;
     private string _targetLanguage = "ar"; // Default to Arabic
@@ -36,11 +36,7 @@ public class MainViewModel : ViewModelBase, IDisposable
 
     #region Properties
 
-    public bool IsLoading
-    {
-        get => _isLoading;
-        set => SetProperty(ref _isLoading, value);
-    }
+
 
     public TranslationModel? CurrentTranslation
     {
@@ -77,9 +73,8 @@ public class MainViewModel : ViewModelBase, IDisposable
     {
         try
         {
-            // Show window and set loading state
-            WindowVisibility = Visibility.Visible;
-            IsLoading = true;
+            // Don't show window yet to avoid flicker
+            WindowVisibility = Visibility.Collapsed;
             CurrentTranslation = null;
 
             if (string.IsNullOrWhiteSpace(sourceText))
@@ -95,6 +90,8 @@ public class MainViewModel : ViewModelBase, IDisposable
 
             // Perform real translation
             CurrentTranslation = await _translationService.TranslateAsync(sourceText, _targetLanguage);
+            
+            // Note: View will handle making window visible after layout update
         }
         catch (Exception ex)
         {
@@ -105,10 +102,6 @@ public class MainViewModel : ViewModelBase, IDisposable
                 ProviderName = _translationService.ProviderName
             };
             System.Diagnostics.Debug.WriteLine($"Translation Error: {ex.Message}");
-        }
-        finally
-        {
-            IsLoading = false;
         }
     }
 
@@ -136,7 +129,6 @@ public class MainViewModel : ViewModelBase, IDisposable
     {
         WindowVisibility = Visibility.Collapsed;
         CurrentTranslation = null;
-        IsLoading = false;
     }
 
     #endregion

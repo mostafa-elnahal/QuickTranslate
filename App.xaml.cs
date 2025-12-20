@@ -129,6 +129,9 @@ public partial class App : Application
     /// </summary>
     private async void OnHotkeyPressed(object? sender, EventArgs e)
     {
+        // Instant feedback: Hide window immediately if open
+        _viewModel?.HideWindow();
+
         if (_clipboardService == null) return;
 
         // Run capture on STA thread (required for clipboard/SendKeys)
