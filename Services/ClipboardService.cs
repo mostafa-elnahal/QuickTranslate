@@ -14,7 +14,7 @@ public class ClipboardService : IClipboardService
         // 1. Preserve ALL clipboard formats
         ClipboardHelper.ClipboardSnapshot? snapshot = null;
         try 
-        {
+        { 
             snapshot = ClipboardHelper.SaveSnapshot();
             if (snapshot.HasContent)
             {
@@ -30,7 +30,7 @@ public class ClipboardService : IClipboardService
             Log($"Failed to save clipboard: {ex.Message}");
         }
 
-        Thread.Sleep(5);
+        Thread.Sleep(20);
         
         // 2. Clear & Copy selection
         ClipboardHelper.ClearSafe();
