@@ -80,7 +80,7 @@ public class MainViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// Main workflow: translates the provided source text
     /// </summary>
-    public async Task TranslateAsync(string sourceText)
+    public async Task TranslateAsync(string sourceText, bool isReTranslation = false)
     {
         try
         {
@@ -88,8 +88,11 @@ public class MainViewModel : ViewModelBase, IDisposable
             _translationGeneration++;
 
             // Don't show window yet to avoid flicker
-            WindowVisibility = Visibility.Collapsed;
-            CurrentTranslation = null;
+            if (!isReTranslation)
+            {
+                WindowVisibility = Visibility.Collapsed;
+                CurrentTranslation = null;
+            }
 
             if (string.IsNullOrWhiteSpace(sourceText))
             {
@@ -122,8 +125,10 @@ public class MainViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// Changes the translation provider.
     /// </summary>
-    public void SetProvider(string providerName)
+    public async Task SetProviderAsync(string providerName)
     {
+        if (_translationService.ProviderName == providerName) return;
+
         _translationService.SetProvider(providerName);
 
         // Update selection state in Providers
@@ -134,6 +139,12 @@ public class MainViewModel : ViewModelBase, IDisposable
 
         OnPropertyChanged(nameof(CurrentProviderName));
         OnPropertyChanged(nameof(Providers));
+
+        // If we have a current translation, re-translate with the new provider
+        if (CurrentTranslation != null && !string.IsNullOrEmpty(CurrentTranslation.OriginalText))
+        {
+            await TranslateAsync(CurrentTranslation.OriginalText, isReTranslation: true);
+        }
     }
 
     /// <summary>

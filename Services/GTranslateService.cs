@@ -12,9 +12,9 @@ namespace QuickTranslate.Services;
 public class GTranslateService : ITranslationService, IDisposable
 {
     private readonly ITranslatorFactory _translatorFactory;
-    
+
     private ITranslator? _currentTranslator;
-    private string _currentProviderName = "Yandex";
+    private string _currentProviderName = "Google";
 
     public string ProviderName => _currentProviderName;
 

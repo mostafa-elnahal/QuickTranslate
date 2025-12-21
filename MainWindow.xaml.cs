@@ -119,11 +119,11 @@ public partial class MainWindow : Window
         _viewModel.HideWindow();
     }
 
-    private void Provider_Click(object sender, MouseButtonEventArgs e)
+    private async void Provider_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement element && element.DataContext is ProviderInfo provider)
         {
-            _viewModel.SetProvider(provider.Name);
+            await _viewModel.SetProviderAsync(provider.Name);
         }
     }
 }

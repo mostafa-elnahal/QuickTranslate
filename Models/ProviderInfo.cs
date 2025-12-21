@@ -1,13 +1,62 @@
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+
 namespace QuickTranslate.Models;
 
 /// <summary>
 /// Model for displaying a translation provider in the UI.
 /// </summary>
-public class ProviderInfo
+public class ProviderInfo : INotifyPropertyChanged
 {
-    public string Name { get; set; } = string.Empty;
-    public string BrandColor { get; set; } = "#888888";
-    public bool IsSelected { get; set; }
+    private string _name = string.Empty;
+    private string _brandColor = "#888888";
+    private bool _isSelected;
+
+    public string Name
+    {
+        get => _name;
+        set
+        {
+            if (_name != value)
+            {
+                _name = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public string BrandColor
+    {
+        get => _brandColor;
+        set
+        {
+            if (_brandColor != value)
+            {
+                _brandColor = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (_isSelected != value)
+            {
+                _isSelected = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
 
     /// <summary>
     /// Creates provider info with brand colors for known providers.
