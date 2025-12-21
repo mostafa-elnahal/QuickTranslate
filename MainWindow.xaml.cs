@@ -1,6 +1,7 @@
 using System;
 using System.Windows;
 using System.Windows.Input;
+using Windows.Win32;
 using System.Windows.Threading;
 using QuickTranslate.Services;
 using QuickTranslate.ViewModels;
@@ -89,8 +90,8 @@ public partial class MainWindow : Window
     private void DisableMaximization()
     {
         var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
-        var style = QuickTranslate.Interop.NativeMethods.GetWindowLong(hwnd, QuickTranslate.Interop.NativeMethods.GWL_STYLE);
-        QuickTranslate.Interop.NativeMethods.SetWindowLong(hwnd, QuickTranslate.Interop.NativeMethods.GWL_STYLE, style & ~QuickTranslate.Interop.NativeMethods.WS_MAXIMIZEBOX);
+        var style = PInvoke.GetWindowLong(new Windows.Win32.Foundation.HWND(hwnd), Windows.Win32.UI.WindowsAndMessaging.WINDOW_LONG_PTR_INDEX.GWL_STYLE);
+        PInvoke.SetWindowLong(new Windows.Win32.Foundation.HWND(hwnd), Windows.Win32.UI.WindowsAndMessaging.WINDOW_LONG_PTR_INDEX.GWL_STYLE, style & ~(int)Windows.Win32.UI.WindowsAndMessaging.WINDOW_STYLE.WS_MAXIMIZEBOX);
     }
 
     /// <summary>

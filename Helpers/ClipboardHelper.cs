@@ -4,7 +4,9 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
 using System.Windows.Media.Imaging;
-using QuickTranslate.Interop;
+using System.Windows.Input;
+using Windows.Win32;
+using Windows.Win32.Foundation;
 
 namespace QuickTranslate.Helpers;
 
@@ -80,7 +82,7 @@ internal static class ClipboardHelper
     {
         try
         {
-            if (!NativeMethods.OpenClipboard(IntPtr.Zero))
+            if (!PInvoke.OpenClipboard(new HWND(System.IntPtr.Zero)))
             {
                 System.Diagnostics.Debug.WriteLine("Failed to open clipboard for restore, using fallback");
                 RestoreFallback(snapshot);
@@ -89,7 +91,7 @@ internal static class ClipboardHelper
 
             try
             {
-                NativeMethods.EmptyClipboard();
+                PInvoke.EmptyClipboard();
 
                 // Set exclusion flags FIRST
                 SetClipboardExclusionFlags();
@@ -102,7 +104,7 @@ internal static class ClipboardHelper
             }
             finally
             {
-                NativeMethods.CloseClipboard();
+                PInvoke.CloseClipboard();
             }
 
             // Files and images are easier to restore via .NET after setting exclusion flags
@@ -143,16 +145,16 @@ internal static class ClipboardHelper
     {
         try
         {
-            if (NativeMethods.OpenClipboard(IntPtr.Zero))
+            if (PInvoke.OpenClipboard(new HWND(System.IntPtr.Zero)))
             {
                 try
                 {
-                    NativeMethods.EmptyClipboard();
+                    PInvoke.EmptyClipboard();
                     SetClipboardExclusionFlags();
                 }
                 finally
                 {
-                    NativeMethods.CloseClipboard();
+                    PInvoke.CloseClipboard();
                 }
             }
         }
@@ -162,38 +164,48 @@ internal static class ClipboardHelper
         }
     }
 
+    // Format names for clipboard history exclusion
+    private const string EXCLUDE_FROM_HISTORY = "ExcludeClipboardContentFromMonitorProcessing";
+    private const string CAN_INCLUDE_IN_HISTORY = "CanIncludeInClipboardHistory";
+
     /// <summary>
     /// Sets clipboard exclusion flags to prevent history entries.
     /// </summary>
     private static void SetClipboardExclusionFlags()
     {
-        uint excludeFormat = NativeMethods.RegisterClipboardFormat(NativeMethods.EXCLUDE_FROM_HISTORY);
-        uint canIncludeFormat = NativeMethods.RegisterClipboardFormat(NativeMethods.CAN_INCLUDE_IN_HISTORY);
+        uint excludeFormat = PInvoke.RegisterClipboardFormat(EXCLUDE_FROM_HISTORY);
+        uint canIncludeFormat = PInvoke.RegisterClipboardFormat(CAN_INCLUDE_IN_HISTORY);
 
         // ExcludeClipboardContentFromMonitorProcessing
-        IntPtr excludeData = NativeMethods.GlobalAlloc(NativeMethods.GMEM_MOVEABLE, (UIntPtr)sizeof(int));
+        Windows.Win32.Foundation.HGLOBAL excludeData = PInvoke.GlobalAlloc(Windows.Win32.System.Memory.GLOBAL_ALLOC_FLAGS.GMEM_MOVEABLE, (nuint)sizeof(int));
         if (excludeData != IntPtr.Zero)
         {
-            IntPtr excludePtr = NativeMethods.GlobalLock(excludeData);
-            if (excludePtr != IntPtr.Zero)
+            unsafe
             {
-                Marshal.WriteInt32(excludePtr, 0);
-                NativeMethods.GlobalUnlock(excludeData);
+                void* excludePtr = PInvoke.GlobalLock(excludeData);
+                if (excludePtr != null)
+                {
+                    Marshal.WriteInt32((IntPtr)excludePtr, 0);
+                    PInvoke.GlobalUnlock(excludeData);
+                }
             }
-            NativeMethods.SetClipboardData(excludeFormat, excludeData);
+            PInvoke.SetClipboardData(excludeFormat, (Windows.Win32.Foundation.HANDLE)(IntPtr)excludeData);
         }
 
         // CanIncludeInClipboardHistory = 0 (false)
-        IntPtr canIncludeData = NativeMethods.GlobalAlloc(NativeMethods.GMEM_MOVEABLE, (UIntPtr)sizeof(int));
+        Windows.Win32.Foundation.HGLOBAL canIncludeData = PInvoke.GlobalAlloc(Windows.Win32.System.Memory.GLOBAL_ALLOC_FLAGS.GMEM_MOVEABLE, (nuint)sizeof(int));
         if (canIncludeData != IntPtr.Zero)
         {
-            IntPtr canIncludePtr = NativeMethods.GlobalLock(canIncludeData);
-            if (canIncludePtr != IntPtr.Zero)
+            unsafe
             {
-                Marshal.WriteInt32(canIncludePtr, 0);
-                NativeMethods.GlobalUnlock(canIncludeData);
+                void* canIncludePtr = PInvoke.GlobalLock(canIncludeData);
+                if (canIncludePtr != null)
+                {
+                    Marshal.WriteInt32((IntPtr)canIncludePtr, 0);
+                    PInvoke.GlobalUnlock(canIncludeData);
+                }
             }
-            NativeMethods.SetClipboardData(canIncludeFormat, canIncludeData);
+            PInvoke.SetClipboardData(canIncludeFormat, (Windows.Win32.Foundation.HANDLE)(IntPtr)canIncludeData);
         }
     }
 
@@ -203,17 +215,20 @@ internal static class ClipboardHelper
     private static void SetClipboardText(string text)
     {
         byte[] textBytes = Encoding.Unicode.GetBytes(text + "\0");
-        IntPtr hGlobal = NativeMethods.GlobalAlloc(NativeMethods.GMEM_MOVEABLE, (UIntPtr)textBytes.Length);
+        Windows.Win32.Foundation.HGLOBAL hGlobal = PInvoke.GlobalAlloc(Windows.Win32.System.Memory.GLOBAL_ALLOC_FLAGS.GMEM_MOVEABLE, (nuint)textBytes.Length);
 
         if (hGlobal != IntPtr.Zero)
         {
-            IntPtr pGlobal = NativeMethods.GlobalLock(hGlobal);
-            if (pGlobal != IntPtr.Zero)
+            unsafe
             {
-                Marshal.Copy(textBytes, 0, pGlobal, textBytes.Length);
-                NativeMethods.GlobalUnlock(hGlobal);
+                void* pGlobal = PInvoke.GlobalLock(hGlobal);
+                if (pGlobal != null)
+                {
+                    Marshal.Copy(textBytes, 0, (IntPtr)pGlobal, textBytes.Length);
+                    PInvoke.GlobalUnlock(hGlobal);
+                }
             }
-            NativeMethods.SetClipboardData(NativeMethods.CF_UNICODETEXT, hGlobal);
+            PInvoke.SetClipboardData(13u /* CF_UNICODETEXT */, (Windows.Win32.Foundation.HANDLE)(IntPtr)hGlobal);
         }
     }
 
@@ -257,7 +272,7 @@ internal static class ClipboardHelper
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Clipboard clear failed (attempt {i+1}): {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Clipboard clear failed (attempt {i + 1}): {ex.Message}");
                 System.Threading.Thread.Sleep(50);
             }
         }
@@ -282,7 +297,7 @@ internal static class ClipboardHelper
             {
                 // Swallowing COMException (0x800401D0 - CLIPBRD_E_CANT_OPEN) and ExternalException
                 // which happen when clipboard is locked by another process
-                System.Diagnostics.Debug.WriteLine($"Clipboard read failed (attempt {i+1}): {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Clipboard read failed (attempt {i + 1}): {ex.Message}");
             }
 
             System.Threading.Thread.Sleep(retryInterval);

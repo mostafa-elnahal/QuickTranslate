@@ -1,6 +1,7 @@
 using System;
 using System.Windows;
-using QuickTranslate.Interop;
+using System.Runtime.InteropServices;
+using Windows.Win32;
 
 namespace QuickTranslate.Services;
 
@@ -8,7 +9,7 @@ public class WindowPositioningService : IWindowPositioningService
 {
     public void PositionNearCursor(Window window)
     {
-        if (NativeMethods.GetCursorPos(out NativeMethods.POINT cursorPos))
+        if (PInvoke.GetCursorPos(out System.Drawing.Point cursorPos))
         {
             // Get DPI scaling factors
             var presentationSource = PresentationSource.FromVisual(window);
@@ -28,7 +29,7 @@ public class WindowPositioningService : IWindowPositioningService
             // Get screen info (in pixels) and convert to DIPs
             var screen = System.Windows.Forms.Screen.FromPoint(
                 new System.Drawing.Point(cursorPos.X, cursorPos.Y));
-            
+
             double screenLeft = screen.WorkingArea.Left / dpiScaleX;
             double screenTop = screen.WorkingArea.Top / dpiScaleY;
             double screenRight = screen.WorkingArea.Right / dpiScaleX;
@@ -45,7 +46,7 @@ public class WindowPositioningService : IWindowPositioningService
             double top = cursorY + 10;
 
             // Smart positioning logic (Menu behavior)
-            
+
             // Check Right boundary
             if (left + windowWidth > screenRight)
             {
@@ -64,7 +65,7 @@ public class WindowPositioningService : IWindowPositioningService
             // (e.g. if it's too big to fit on either side, prioritize Top/Left alignment)
             if (left < screenLeft) left = screenLeft;
             if (left + windowWidth > screenRight) left = screenRight - windowWidth;
-            
+
             if (top < screenTop) top = screenTop;
             if (top + windowHeight > screenBottom) top = screenBottom - windowHeight;
 

@@ -1,7 +1,8 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
-using QuickTranslate.Interop;
+using Windows.Win32;
+
 
 namespace QuickTranslate.Services;
 
@@ -23,10 +24,10 @@ public class TrayIconService : ITrayIconService
         };
 
         var contextMenu = new ContextMenuStrip();
-        
+
         var settingsItem = new ToolStripMenuItem("Settings...");
         settingsItem.Click += (s, e) => SettingsRequested?.Invoke(this, EventArgs.Empty);
-        
+
         var exitItem = new ToolStripMenuItem("Exit");
         exitItem.Click += (s, e) => ExitRequested?.Invoke(this, EventArgs.Empty);
 
@@ -54,7 +55,7 @@ public class TrayIconService : ITrayIconService
         using (var g = Graphics.FromImage(bitmap))
         {
             g.Clear(Color.Transparent);
-            
+
             // Draw a simple 'T' letter
             using (var font = new System.Drawing.Font("Arial", 12, System.Drawing.FontStyle.Bold))
             using (var brush = new SolidBrush(Color.White))
@@ -66,7 +67,7 @@ public class TrayIconService : ITrayIconService
         IntPtr hIcon = bitmap.GetHicon();
         Icon tempIcon = Icon.FromHandle(hIcon);
         Icon clonedIcon = (Icon)tempIcon.Clone();
-        NativeMethods.DestroyIcon(hIcon);
+        PInvoke.DestroyIcon((Windows.Win32.UI.WindowsAndMessaging.HICON)hIcon);
         bitmap.Dispose();
         return clonedIcon;
     }

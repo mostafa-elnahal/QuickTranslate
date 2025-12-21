@@ -1,7 +1,8 @@
 using System;
 using System.Windows;
 using System.Windows.Interop;
-using QuickTranslate.Interop;
+using Windows.Win32;
+
 
 namespace QuickTranslate.Services;
 
@@ -24,11 +25,11 @@ public class HotkeyService : IHotkeyService
         _hwndSource = HwndSource.FromHwnd(_windowHandle);
         _hwndSource?.AddHook(WndProc);
 
-        bool success = NativeMethods.RegisterHotKey(
-            _windowHandle,
+        bool success = PInvoke.RegisterHotKey(
+            new Windows.Win32.Foundation.HWND(_windowHandle),
             HOTKEY_ID,
             0, // No modifiers
-            VK_F1);
+            (uint)Windows.Win32.UI.Input.KeyboardAndMouse.VIRTUAL_KEY.VK_F1);
 
         if (!success)
         {
@@ -44,7 +45,7 @@ public class HotkeyService : IHotkeyService
     {
         if (_windowHandle != IntPtr.Zero)
         {
-            NativeMethods.UnregisterHotKey(_windowHandle, HOTKEY_ID);
+            PInvoke.UnregisterHotKey(new Windows.Win32.Foundation.HWND(_windowHandle), HOTKEY_ID);
         }
     }
 
