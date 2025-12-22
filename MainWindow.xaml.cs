@@ -129,4 +129,21 @@ public partial class MainWindow : Window
             await _viewModel.SetProviderAsync(provider.Name);
         }
     }
+
+    private void TranslationBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount == 3 && sender is System.Windows.Controls.TextBox textBox)
+        {
+            double currentOffset = ContentScrollViewer.VerticalOffset;
+            textBox.SelectAll();
+
+            // Restore scroll position to prevent jumping to the end
+            ContentScrollViewer.ScrollToVerticalOffset(currentOffset);
+
+            // Ensure restoration happens after any layout updates
+            Dispatcher.InvokeAsync(() => ContentScrollViewer.ScrollToVerticalOffset(currentOffset));
+
+            e.Handled = true;
+        }
+    }
 }
