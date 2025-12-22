@@ -1,6 +1,6 @@
 using System;
 using System.Windows;
-using System.Runtime.InteropServices;
+
 using Windows.Win32;
 
 namespace QuickTranslate.Services;

@@ -12,12 +12,7 @@ GlobalLock
 GlobalUnlock
 GetWindowLong
 SetWindowLong
-GetWindowLongPtr
-SetWindowLongPtr
-SendInput
-GWL_STYLE
-WS_MAXIMIZEBOX
-GMEM_MOVEABLE
-CF_UNICODETEXT
+WINDOW_STYLE
+
 INPUT
 KEYBDINPUT
