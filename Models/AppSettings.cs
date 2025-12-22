@@ -44,4 +44,9 @@ public class AppSettings
     /// Saved window height. Null = first launch (use SizeToContent with MaxHeight).
     /// </summary>
     public double? SavedWindowHeight { get; set; } = null;
+
+    /// <summary>
+    /// Font size for the main translation text.
+    /// </summary>
+    public double FontSize { get; set; } = 18;
 }

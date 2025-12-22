@@ -15,17 +15,19 @@ public class SettingsService : ISettingsService
 
     public AppSettings Settings => _settings;
 
+    public event EventHandler? SettingsChanged;
+
     public SettingsService()
     {
         var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         var appFolder = Path.Combine(appDataPath, "QuickTranslate");
-        
+
         // Ensure the directory exists
         Directory.CreateDirectory(appFolder);
-        
+
         _settingsPath = Path.Combine(appFolder, "settings.json");
         _settings = new AppSettings();
-        
+
         // Load settings on initialization
         Load();
     }
@@ -56,12 +58,14 @@ public class SettingsService : ISettingsService
     {
         try
         {
-            var options = new JsonSerializerOptions 
-            { 
-                WriteIndented = true 
+            var options = new JsonSerializerOptions
+            {
+                WriteIndented = true
             };
             var json = JsonSerializer.Serialize(_settings, options);
             File.WriteAllText(_settingsPath, json);
+
+            SettingsChanged?.Invoke(this, EventArgs.Empty);
         }
         catch (Exception ex)
         {

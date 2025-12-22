@@ -21,17 +21,18 @@ public class SettingsViewModel : ViewModelBase
     private string _defaultTargetLanguage = "en";
     private string _defaultProvider = "Google";
     private string _hotkey = "F1";
-
+    private double _fontSize = 18;
+    private bool _isDirty = false;
     public SettingsViewModel(ISettingsService settingsService)
     {
         _settingsService = settingsService;
-        
+
         // Load current settings into properties
         LoadFromSettings();
 
         // Initialize commands
-        SaveCommand = new RelayCommand(Save);
-        CancelCommand = new RelayCommand(Cancel);
+        SaveCommand = new RelayCommand(Save, () => IsDirty);
+        CloseCommand = new RelayCommand(Close);
 
         // Initialize categories
         Categories = new ObservableCollection<string>
@@ -84,37 +85,49 @@ public class SettingsViewModel : ViewModelBase
     public bool StartWithWindows
     {
         get => _startWithWindows;
-        set => SetProperty(ref _startWithWindows, value);
+        set { if (SetProperty(ref _startWithWindows, value)) IsDirty = true; }
     }
 
     public double WindowOpacity
     {
         get => _windowOpacity;
-        set => SetProperty(ref _windowOpacity, value);
+        set { if (SetProperty(ref _windowOpacity, value)) IsDirty = true; }
     }
 
     public string DefaultSourceLanguage
     {
         get => _defaultSourceLanguage;
-        set => SetProperty(ref _defaultSourceLanguage, value);
+        set { if (SetProperty(ref _defaultSourceLanguage, value)) IsDirty = true; }
     }
 
     public string DefaultTargetLanguage
     {
         get => _defaultTargetLanguage;
-        set => SetProperty(ref _defaultTargetLanguage, value);
+        set { if (SetProperty(ref _defaultTargetLanguage, value)) IsDirty = true; }
     }
 
     public string DefaultProvider
     {
         get => _defaultProvider;
-        set => SetProperty(ref _defaultProvider, value);
+        set { if (SetProperty(ref _defaultProvider, value)) IsDirty = true; }
     }
 
     public string Hotkey
     {
         get => _hotkey;
-        set => SetProperty(ref _hotkey, value);
+        set { if (SetProperty(ref _hotkey, value)) IsDirty = true; }
+    }
+
+    public double FontSize
+    {
+        get => _fontSize;
+        set { if (SetProperty(ref _fontSize, value)) IsDirty = true; }
+    }
+
+    public bool IsDirty
+    {
+        get => _isDirty;
+        private set => SetProperty(ref _isDirty, value);
     }
 
     #endregion
@@ -122,7 +135,7 @@ public class SettingsViewModel : ViewModelBase
     #region Commands
 
     public ICommand SaveCommand { get; }
-    public ICommand CancelCommand { get; }
+    public ICommand CloseCommand { get; }
 
     /// <summary>
     /// Event raised when the window should close.
@@ -138,15 +151,15 @@ public class SettingsViewModel : ViewModelBase
         _settingsService.Settings.DefaultTargetLanguage = DefaultTargetLanguage;
         _settingsService.Settings.DefaultProvider = DefaultProvider;
         _settingsService.Settings.Hotkey = Hotkey;
+        _settingsService.Settings.FontSize = FontSize;
 
         _settingsService.Save();
-        RequestClose?.Invoke(this, true);
+        IsDirty = false;
     }
 
-    private void Cancel()
+    private void Close()
     {
-        // Revert to saved settings
-        LoadFromSettings();
+        // Close without saving - discard any unsaved changes
         RequestClose?.Invoke(this, false);
     }
 
@@ -161,6 +174,7 @@ public class SettingsViewModel : ViewModelBase
         _defaultTargetLanguage = settings.DefaultTargetLanguage;
         _defaultProvider = settings.DefaultProvider;
         _hotkey = settings.Hotkey;
+        _fontSize = settings.FontSize;
     }
 }
 

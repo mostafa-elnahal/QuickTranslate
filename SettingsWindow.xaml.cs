@@ -26,11 +26,27 @@ public partial class SettingsWindow : Window
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
         base.OnMouseLeftButtonDown(e);
-        
+
         // Allow dragging the window from the title bar area
         if (e.GetPosition(this).Y < 40)
         {
             DragMove();
+        }
+    }
+
+    private void IncreaseFontSize_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is SettingsViewModel vm && vm.FontSize < 48)
+        {
+            vm.FontSize++;
+        }
+    }
+
+    private void DecreaseFontSize_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is SettingsViewModel vm && vm.FontSize > 8)
+        {
+            vm.FontSize--;
         }
     }
 }

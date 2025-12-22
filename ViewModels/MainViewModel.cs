@@ -13,6 +13,7 @@ namespace QuickTranslate.ViewModels;
 public class MainViewModel : ViewModelBase, IDisposable
 {
     private readonly ITranslationService _translationService;
+    private readonly ISettingsService _settingsService;
 
     private TranslationModel? _currentTranslation;
     private Visibility _windowVisibility = Visibility.Collapsed;
@@ -29,10 +30,19 @@ public class MainViewModel : ViewModelBase, IDisposable
     /// </summary>
     public int TranslationGeneration => _translationGeneration;
 
-    public MainViewModel(ITranslationService translationService)
+    public MainViewModel(ITranslationService translationService, ISettingsService settingsService)
     {
         _translationService = translationService;
+        _settingsService = settingsService;
+
+        _settingsService.SettingsChanged += OnSettingsChanged;
+
         InitializeProviders();
+    }
+
+    private void OnSettingsChanged(object? sender, EventArgs e)
+    {
+        OnPropertyChanged(nameof(TranslationFontSize));
     }
 
     private void InitializeProviders()
@@ -60,6 +70,8 @@ public class MainViewModel : ViewModelBase, IDisposable
         get => _windowVisibility;
         set => SetProperty(ref _windowVisibility, value);
     }
+
+    public double TranslationFontSize => _settingsService.Settings.FontSize;
 
     public string TargetLanguage
     {

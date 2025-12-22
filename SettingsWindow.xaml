@@ -214,11 +214,33 @@
 
                     <!-- Appearance Section -->
                     <StackPanel Visibility="{Binding SelectedCategory, Converter={StaticResource CategoryToVisibility}, ConverterParameter=Appearance}">
-                        <GroupBox Header="Theme" Style="{StaticResource SettingsGroupBoxStyle}">
-                            <TextBlock Text="Theme customization coming soon." 
-                                       Foreground="{StaticResource TextSecondaryBrush}"
-                                       FontStyle="Italic"
-                                       Margin="12,8"/>
+                        <GroupBox Header="Appearance" Style="{StaticResource SettingsGroupBoxStyle}">
+                            <Grid Margin="12,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="140"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="30"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Text="Font size:" VerticalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBox Text="{Binding FontSize, UpdateSourceTrigger=PropertyChanged}" 
+                                             Style="{StaticResource SettingsTextBoxStyle}"
+                                             VerticalAlignment="Center"
+                                             Width="50"
+                                             HorizontalContentAlignment="Center"/>
+                                    <StackPanel VerticalAlignment="Center" Margin="4,0,0,0">
+                                        <Button Content="▲" Click="IncreaseFontSize_Click" 
+                                                Style="{StaticResource WindowHeaderButtonStyle}"
+                                                Padding="4,0" MinHeight="12" FontSize="8"/>
+                                        <Button Content="▼" Click="DecreaseFontSize_Click" 
+                                                Style="{StaticResource WindowHeaderButtonStyle}"
+                                                Padding="4,0" MinHeight="12" FontSize="8"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Grid>
                         </GroupBox>
                     </StackPanel>
 
@@ -246,14 +268,26 @@
                             Margin="0,0,12,0">
                     <Button Content="Save" 
                             Command="{Binding SaveCommand}"
+                            IsEnabled="{Binding IsDirty}"
                             MinWidth="70"
                             Padding="12,6"
                             Margin="0,0,8,0"
-                            Style="{StaticResource WindowHeaderButtonStyle}"
-                            Background="{StaticResource AccentBrush}"
-                            Foreground="White"/>
-                    <Button Content="Cancel" 
-                            Command="{Binding CancelCommand}"
+                            Foreground="White">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource WindowHeaderButtonStyle}">
+                                <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+                                <Setter Property="Opacity" Value="1"/>
+                                <Style.Triggers>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter Property="Opacity" Value="0.4"/>
+                                        <Setter Property="Background" Value="#555555"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    <Button Content="Close" 
+                            Command="{Binding CloseCommand}"
                             MinWidth="70"
                             Padding="12,6"
                             Style="{StaticResource WindowHeaderButtonStyle}"

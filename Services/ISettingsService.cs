@@ -1,3 +1,4 @@
+using System;
 using QuickTranslate.Models;
 
 namespace QuickTranslate.Services;
@@ -21,4 +22,9 @@ public interface ISettingsService
     /// Saves current settings to persistent storage.
     /// </summary>
     void Save();
+
+    /// <summary>
+    /// Raised when settings are saved.
+    /// </summary>
+    event EventHandler SettingsChanged;
 }

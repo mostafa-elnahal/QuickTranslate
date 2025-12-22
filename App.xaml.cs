@@ -53,7 +53,7 @@ public partial class App : Application
 
         // Initialize ViewModel (Composition Root)
         var translationService = new GTranslateService();
-        _viewModel = new MainViewModel(translationService);
+        _viewModel = new MainViewModel(translationService, _settingsService!);
 
         // Create main window but don't show it
         _mainWindow = new MainWindow(_viewModel, _positioningService, _sizingService);

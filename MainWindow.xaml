@@ -125,7 +125,7 @@
                     <TextBox Text="{Binding MainTranslation, Mode=OneWay}" 
                     		 PreviewMouseLeftButtonDown="TranslationBox_PreviewMouseLeftButtonDown"
                              Foreground="{StaticResource TextPrimaryBrush}" 
-                             FontSize="18" 
+                             FontSize="{Binding DataContext.TranslationFontSize, RelativeSource={RelativeSource AncestorType=Window}}"
                              FontWeight="Medium"
                              TextWrapping="Wrap"
                              IsReadOnly="True"
