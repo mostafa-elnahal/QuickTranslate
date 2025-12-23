@@ -63,6 +63,17 @@ public partial class App : Application
 
         // Register global hotkey
         RegisterGlobalHotkey();
+
+        // Listen for setting changes
+        _settingsService!.SettingsChanged += OnSettingsChanged;
+    }
+
+    private void OnSettingsChanged(object? sender, EventArgs e)
+    {
+        if (_settingsService != null && _hotkeyService != null && _mainWindow != null)
+        {
+            _hotkeyService.Register(HOTKEY_ID_TRANSLATE, _settingsService.Settings.Hotkey, _mainWindow);
+        }
     }
 
     private void Application_Exit(object sender, ExitEventArgs e)
@@ -112,25 +123,28 @@ public partial class App : Application
         _settingsWindow.Show();
     }
 
+    private const int HOTKEY_ID_TRANSLATE = 1;
+
     private void RegisterGlobalHotkey()
     {
         if (_mainWindow == null || _hotkeyService == null) return;
 
-        // Register hotkey using the service
-        // Note: Use a more robust way to wait for handle if needed, but Window constructor usually ensures handle creation if forced or shown.
-        // MainWindow is hidden, so we need to ensure handle exists.
-        // HACK: Show and Hide to ensure handle, or use WindowInteropHelper.EnsureHandle inside service if it accepts Window.
-        // The service internally uses WindowInteropHelper.EnsureHandle, so passing `_mainWindow` is sufficient.
-
         _hotkeyService.HotkeyPressed += OnHotkeyPressed;
-        _hotkeyService.Register(_mainWindow);
+
+        // Initial registration
+        if (_settingsService?.Settings.Hotkey != null)
+        {
+            _hotkeyService.Register(HOTKEY_ID_TRANSLATE, _settingsService.Settings.Hotkey, _mainWindow);
+        }
     }
 
     /// <summary>
     /// Handles the hotkey press event
     /// </summary>
-    private async void OnHotkeyPressed(object? sender, EventArgs e)
+    private async void OnHotkeyPressed(object? sender, int hotkeyId)
     {
+        if (hotkeyId != HOTKEY_ID_TRANSLATE) return;
+
         // Instant feedback: Hide window immediately if open
         _viewModel?.HideWindow();
 

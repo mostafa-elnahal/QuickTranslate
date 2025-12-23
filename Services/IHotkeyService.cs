@@ -6,18 +6,28 @@ namespace QuickTranslate.Services;
 public interface IHotkeyService : IDisposable
 {
     /// <summary>
-    /// Event triggered when the registered hotkey is pressed.
+    /// Event triggered when a registered hotkey is pressed.
+    /// Returns the ID of the hotkey.
     /// </summary>
-    event EventHandler HotkeyPressed;
+    event EventHandler<int> HotkeyPressed;
 
     /// <summary>
-    /// Registers the global hotkey for the specified window.
+    /// Registers a global hotkey with a specific ID.
+    /// If an ID is already registered, it will be overwritten.
     /// </summary>
+    /// <param name="id">Unique identifier for the hotkey.</param>
+    /// <param name="hotkeyString">The hotkey string (e.g., "Ctrl+Shift+T").</param>
     /// <param name="window">The window to attach the hotkey to.</param>
-    void Register(Window window);
-    
+    void Register(int id, string hotkeyString, Window window);
+
     /// <summary>
-    /// Unregisters the global hotkey.
+    /// Unregisters the hotkey with the specified ID.
     /// </summary>
-    void Unregister();
+    /// <param name="id">The unique identifier of the hotkey.</param>
+    void Unregister(int id);
+
+    /// <summary>
+    /// Unregisters all hotkeys.
+    /// </summary>
+    void UnregisterAll();
 }

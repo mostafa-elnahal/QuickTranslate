@@ -49,4 +49,20 @@ public partial class SettingsWindow : Window
             vm.FontSize--;
         }
     }
+
+    private void EditHotkey_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is SettingsViewModel vm)
+        {
+            var dialog = new HotkeyEditorDialog(vm.Hotkey, "Translate selection")
+            {
+                Owner = this
+            };
+
+            if (dialog.ShowDialog() == true && dialog.ResultHotkey != null)
+            {
+                vm.Hotkey = dialog.ResultHotkey;
+            }
+        }
+    }
 }

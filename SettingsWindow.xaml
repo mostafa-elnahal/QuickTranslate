@@ -140,19 +140,35 @@
                         <GroupBox Header="Shortcuts" Style="{StaticResource SettingsGroupBoxStyle}">
                             <Grid Margin="12,4">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="140"/>
                                     <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="30"/>
                                 </Grid.RowDefinitions>
 
-                                <TextBlock Grid.Row="0" Text="Translation hotkey:" VerticalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}"/>
-                                <TextBox Grid.Row="0" Grid.Column="1" 
-                                         Text="{Binding Hotkey}" 
-                                         IsReadOnly="True"
-                                         Style="{StaticResource SettingsTextBoxStyle}"
-                                         VerticalAlignment="Center"/>
+                                <!-- Action Name -->
+                                <TextBlock Grid.Row="0" Grid.Column="0" 
+                                           Text="Translate selection" 
+                                           VerticalAlignment="Center" 
+                                           Foreground="{StaticResource TextPrimaryBrush}"/>
+                                
+                                <!-- Clickable Hotkey Cell -->
+                                <Button Grid.Row="0" Grid.Column="1" 
+                                        Content="{Binding Hotkey}"
+                                        Click="EditHotkey_Click"
+                                        MinWidth="80"
+                                        Padding="8,4"
+                                        HorizontalContentAlignment="Center"
+                                        ToolTip="Click to change hotkey">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource WindowHeaderButtonStyle}">
+                                            <Setter Property="Background" Value="{StaticResource SurfaceBrush}"/>
+                                            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+                                            <Setter Property="BorderThickness" Value="1"/>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
                             </Grid>
                         </GroupBox>
                     </StackPanel>

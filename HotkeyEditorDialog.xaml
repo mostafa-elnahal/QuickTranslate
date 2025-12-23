@@ -1,0 +1,67 @@
+<Window x:Class="QuickTranslate.HotkeyEditorDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Set Hotkey"
+        Width="280"
+        Height="120"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False">
+
+    <Border Background="{StaticResource WindowBackgroundBrush}" 
+            BorderBrush="{StaticResource BorderBrush}" 
+            BorderThickness="1" 
+            CornerRadius="6">
+        <Grid Margin="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Title -->
+            <TextBlock Grid.Row="0" 
+                       Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}"
+                       Foreground="{StaticResource TextPrimaryBrush}"
+                       FontSize="{StaticResource FontSizeNormal}"
+                       Margin="0,0,0,10"/>
+
+            <!-- Hotkey Input -->
+            <TextBox x:Name="HotkeyTextBox"
+                     Grid.Row="1"
+                     Text="{Binding CapturedHotkey, RelativeSource={RelativeSource AncestorType=Window}, UpdateSourceTrigger=PropertyChanged}"
+                     IsReadOnly="True"
+                     Style="{StaticResource SettingsTextBoxStyle}"
+                     FontSize="{StaticResource FontSizeNormal}"
+                     Padding="8,6"
+                     PreviewKeyDown="HotkeyTextBox_PreviewKeyDown"
+                     GotFocus="HotkeyTextBox_GotFocus"/>
+
+            <!-- Buttons -->
+            <StackPanel Grid.Row="2" 
+                        Orientation="Horizontal" 
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Bottom"
+                        Margin="0,12,0,0">
+                <Button Content="Set" 
+                        Click="SetButton_Click"
+                        MinWidth="60"
+                        Padding="12,6"
+                        Margin="0,0,8,0"
+                        Style="{StaticResource WindowHeaderButtonStyle}"
+                        Background="{StaticResource AccentBrush}"
+                        Foreground="White"/>
+                <Button Content="Cancel" 
+                        Click="CancelButton_Click"
+                        MinWidth="60"
+                        Padding="12,6"
+                        Style="{StaticResource WindowHeaderButtonStyle}"
+                        BorderBrush="{StaticResource BorderBrush}"
+                        BorderThickness="1"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>
