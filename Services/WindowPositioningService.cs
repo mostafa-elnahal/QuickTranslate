@@ -1,5 +1,7 @@
 using System;
 using System.Windows;
+using System.Windows.Media;
+
 
 using Windows.Win32;
 
@@ -11,16 +13,11 @@ public class WindowPositioningService : IWindowPositioningService
     {
         if (PInvoke.GetCursorPos(out System.Drawing.Point cursorPos))
         {
-            // Get DPI scaling factors
-            var presentationSource = PresentationSource.FromVisual(window);
-            double dpiScaleX = 1.0;
-            double dpiScaleY = 1.0;
-
-            if (presentationSource?.CompositionTarget != null)
-            {
-                dpiScaleX = presentationSource.CompositionTarget.TransformToDevice.M11;
-                dpiScaleY = presentationSource.CompositionTarget.TransformToDevice.M22;
-            }
+            // Get DPI scaling factors using VisualTreeHelper which is more robust
+            // (Falls back to System DPI if PresentationSource is null)
+            var dpi = VisualTreeHelper.GetDpi(window);
+            double dpiScaleX = dpi.DpiScaleX;
+            double dpiScaleY = dpi.DpiScaleY;
 
             // Convert cursor position from pixels to DIPs
             double cursorX = cursorPos.X / dpiScaleX;
