@@ -9,19 +9,19 @@ using QuickTranslate.Services;
 using QuickTranslate.ViewModels;
 using QuickTranslate.Models;
 
-namespace QuickTranslate;
+namespace QuickTranslate.Views;
 
 /// <summary>
-/// Interaction logic for MainWindow.xaml
+/// Interaction logic for PopupWindow.xaml
 /// </summary>
-public partial class MainWindow : Window
+public partial class PopupWindow : Window
 {
     private readonly MainViewModel _viewModel;
     private readonly IWindowPositioningService _positioningService;
     private readonly IWindowSizingService _sizingService;
 
     // Default constructor for XAML designer support (optional/fake)
-    public MainWindow()
+    public PopupWindow()
     {
         InitializeComponent();
         _viewModel = null!;
@@ -29,7 +29,7 @@ public partial class MainWindow : Window
         _sizingService = null!;
     }
 
-    public MainWindow(MainViewModel viewModel, IWindowPositioningService positioningService, IWindowSizingService sizingService)
+    public PopupWindow(MainViewModel viewModel, IWindowPositioningService positioningService, IWindowSizingService sizingService)
     {
         InitializeComponent();
 

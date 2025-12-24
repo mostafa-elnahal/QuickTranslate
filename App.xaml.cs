@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using QuickTranslate.Services;
 using QuickTranslate.ViewModels;
+using QuickTranslate.Views;
 
 namespace QuickTranslate;
 
@@ -11,7 +12,7 @@ namespace QuickTranslate;
 /// </summary>
 public partial class App : Application
 {
-    private MainWindow? _mainWindow;
+    private PopupWindow? _popupWindow;
     private MainViewModel? _viewModel;
 
     // Services
@@ -55,8 +56,8 @@ public partial class App : Application
         var translationService = new GTranslateService();
         _viewModel = new MainViewModel(translationService, _settingsService!);
 
-        // Create main window but don't show it
-        _mainWindow = new MainWindow(_viewModel, _positioningService, _sizingService);
+        // Create popup window but don't show it
+        _popupWindow = new PopupWindow(_viewModel, _positioningService, _sizingService);
 
         // Setup system tray icon
         SetupTrayIcon();
@@ -70,9 +71,9 @@ public partial class App : Application
 
     private void OnSettingsChanged(object? sender, EventArgs e)
     {
-        if (_settingsService != null && _hotkeyService != null && _mainWindow != null)
+        if (_settingsService != null && _hotkeyService != null && _popupWindow != null)
         {
-            _hotkeyService.Register(HOTKEY_ID_TRANSLATE, _settingsService.Settings.Hotkey, _mainWindow);
+            _hotkeyService.Register(HOTKEY_ID_TRANSLATE, _settingsService.Settings.Hotkey, _popupWindow);
         }
     }
 
@@ -127,14 +128,14 @@ public partial class App : Application
 
     private void RegisterGlobalHotkey()
     {
-        if (_mainWindow == null || _hotkeyService == null) return;
+        if (_popupWindow == null || _hotkeyService == null) return;
 
         _hotkeyService.HotkeyPressed += OnHotkeyPressed;
 
         // Initial registration
         if (_settingsService?.Settings.Hotkey != null)
         {
-            _hotkeyService.Register(HOTKEY_ID_TRANSLATE, _settingsService.Settings.Hotkey, _mainWindow);
+            _hotkeyService.Register(HOTKEY_ID_TRANSLATE, _settingsService.Settings.Hotkey, _popupWindow);
         }
     }
 
@@ -165,6 +166,6 @@ public partial class App : Application
         });
 
         // Show window and translate on UI thread
-        _mainWindow?.ShowAndTranslate(capturedText);
+        _popupWindow?.ShowAndTranslate(capturedText);
     }
 }

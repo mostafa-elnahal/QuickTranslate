@@ -1,7 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
 
-namespace QuickTranslate;
+namespace QuickTranslate.Views;
 
 /// <summary>
 /// Dialog for capturing and setting a hotkey combination.

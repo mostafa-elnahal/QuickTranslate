@@ -2,7 +2,7 @@ using System.Windows;
 using System.Windows.Input;
 using QuickTranslate.ViewModels;
 
-namespace QuickTranslate;
+namespace QuickTranslate.Views;
 
 /// <summary>
 /// Interaction logic for SettingsWindow.xaml
