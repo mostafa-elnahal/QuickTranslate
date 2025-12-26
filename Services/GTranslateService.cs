@@ -64,7 +64,7 @@ public class GTranslateService : ITranslationService, IDisposable
 
             var result = await _currentTranslator.TranslateAsync(text, targetLanguage, sourceLanguage);
 
-            return new TranslationModel
+            var model = new TranslationModel
             {
                 OriginalText = text,
                 MainTranslation = result.Translation,
@@ -73,6 +73,15 @@ public class GTranslateService : ITranslationService, IDisposable
                 ProviderName = _currentProviderName,
                 DictionaryEntries = []
             };
+
+            // Process Rich Dictionary Data if available
+            if (result is GoogleTranslationResult googleResult)
+            {
+                model.DictionaryEntries = googleResult.DictionaryEntries;
+                model.Phonetic = googleResult.Transliteration ?? string.Empty;
+            }
+
+            return model;
         }
         catch (Exception ex)
         {

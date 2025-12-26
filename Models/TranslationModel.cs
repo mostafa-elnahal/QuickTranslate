@@ -22,21 +22,34 @@ public class TranslationModel
     /// Returns true if the target language is a Right-to-Left language.
     /// </summary>
     public bool IsRtl => RtlLanguages.Contains(TargetLanguage);
+
+    /// <summary>
+    /// Returns true if the source language is a Right-to-Left language.
+    /// </summary>
+    public bool IsSourceRtl => RtlLanguages.Contains(SourceLanguage);
+}
+
+public enum DictionaryEntryType
+{
+    Translation, // Standard translation variants (dt=bd)
+    Definition,  // Source definitions (dt=md)
+    Example      // Usage examples (dt=ex)
 }
 
 public class DictionaryEntry
 {
     public string PartOfSpeech { get; set; } = string.Empty; // e.g., "noun", "verb"
+    public DictionaryEntryType EntryType { get; set; } = DictionaryEntryType.Translation;
     public List<DefinitionEntry> Definitions { get; set; } = new List<DefinitionEntry>();
 }
 
 public class DefinitionEntry
 {
-    public string MainTerm { get; set; } = string.Empty; 
-    public List<string> Synonyms { get; set; } = new List<string>(); 
+    public string MainTerm { get; set; } = string.Empty;
+    public List<string> Synonyms { get; set; } = new List<string>();
 
     // Helper for XAML binding
-    public string SynonymsText => Synonyms != null && Synonyms.Count > 0 
-        ? $"({string.Join(", ", Synonyms)})" 
+    public string SynonymsText => Synonyms != null && Synonyms.Count > 0
+        ? $"({string.Join(", ", Synonyms)})"
         : string.Empty;
 }
