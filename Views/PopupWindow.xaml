@@ -110,7 +110,7 @@
                           Style="{StaticResource SlimScrollViewerStyle}"
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled">
-                <StackPanel DataContext="{Binding CurrentTranslation}">
+                <StackPanel DataContext="{Binding CurrentTranslation}" Margin="0,0,0,32">
                     <StackPanel.Style>
                         <Style TargetType="StackPanel">
                             <Setter Property="Visibility" Value="Visible"/>
