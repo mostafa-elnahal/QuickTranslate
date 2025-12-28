@@ -13,7 +13,7 @@ namespace QuickTranslate;
 public partial class App : Application
 {
     private PopupWindow? _popupWindow;
-    private MainViewModel? _viewModel;
+    private PopupViewModel? _viewModel;
 
     // Services
     private IClipboardService? _clipboardService;
@@ -54,7 +54,7 @@ public partial class App : Application
 
         // Initialize ViewModel (Composition Root)
         var translationService = new GTranslateService();
-        _viewModel = new MainViewModel(translationService, _settingsService!);
+        _viewModel = new PopupViewModel(translationService, _settingsService!);
 
         // Create popup window but don't show it
         _popupWindow = new PopupWindow(_viewModel, _positioningService, _sizingService);

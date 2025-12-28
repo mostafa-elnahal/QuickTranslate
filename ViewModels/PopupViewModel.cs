@@ -8,9 +8,9 @@ using QuickTranslate.Models;
 namespace QuickTranslate.ViewModels;
 
 /// <summary>
-/// ViewModel for the main translation window
+/// ViewModel for the popup translation window
 /// </summary>
-public class MainViewModel : ViewModelBase, IDisposable
+public class PopupViewModel : ViewModelBase, IDisposable
 {
     private readonly ITranslationService _translationService;
     private readonly ISettingsService _settingsService;
@@ -30,7 +30,7 @@ public class MainViewModel : ViewModelBase, IDisposable
     /// </summary>
     public int TranslationGeneration => _translationGeneration;
 
-    public MainViewModel(ITranslationService translationService, ISettingsService settingsService)
+    public PopupViewModel(ITranslationService translationService, ISettingsService settingsService)
     {
         _translationService = translationService;
         _settingsService = settingsService;

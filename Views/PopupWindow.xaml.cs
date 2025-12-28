@@ -16,7 +16,7 @@ namespace QuickTranslate.Views;
 /// </summary>
 public partial class PopupWindow : Window
 {
-    private readonly MainViewModel _viewModel;
+    private readonly PopupViewModel _viewModel;
     private readonly IWindowPositioningService _positioningService;
     private readonly IWindowSizingService _sizingService;
 
@@ -29,7 +29,7 @@ public partial class PopupWindow : Window
         _sizingService = null!;
     }
 
-    public PopupWindow(MainViewModel viewModel, IWindowPositioningService positioningService, IWindowSizingService sizingService)
+    public PopupWindow(PopupViewModel viewModel, IWindowPositioningService positioningService, IWindowSizingService sizingService)
     {
         InitializeComponent();
 

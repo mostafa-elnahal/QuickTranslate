@@ -47,7 +47,7 @@ QuickTranslate/
 ├── App.xaml.cs                # System tray & hotkey registration
 ├── MainWindow.xaml            # Borderless transparent UI
 ├── MainWindow.xaml.cs         # Window positioning & lifecycle
-├── MainViewModel.cs           # MVVM ViewModel
+├── PopupViewModel.cs          # MVVM ViewModel
 ├── NativeMethods.cs           # P/Invoke wrapper for Win32 APIs
 ├── Services/
 │   ├── GTranslateService.cs   # GTranslate wrapper implementation
@@ -72,7 +72,7 @@ QuickTranslate/
 - Supports multiple providers: Google, Bing, Yandex, Microsoft.
 - Handles lazy loading of translators to optimize memory.
 
-#### MainViewModel.cs
+#### PopupViewModel.cs
 - Manages UI state (`IsLoading`, `CurrentTranslation`).
 - Orchestrates the translation flow: `TranslateClipboardAsync()`.
 
