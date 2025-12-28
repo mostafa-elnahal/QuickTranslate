@@ -43,6 +43,10 @@ public class PopupViewModel : ViewModelBase, IDisposable
     private void OnSettingsChanged(object? sender, EventArgs e)
     {
         OnPropertyChanged(nameof(TranslationFontSize));
+        OnPropertyChanged(nameof(TranslationFontFamily));
+        OnPropertyChanged(nameof(TranslationFontWeight));
+        OnPropertyChanged(nameof(DictionaryTermFontSize));
+        OnPropertyChanged(nameof(DictionarySmallFontSize));
     }
 
     private void InitializeProviders()
@@ -72,6 +76,14 @@ public class PopupViewModel : ViewModelBase, IDisposable
     }
 
     public double TranslationFontSize => _settingsService.Settings.FontSize;
+
+    public string TranslationFontFamily => _settingsService.Settings.FontFamily;
+
+    public string TranslationFontWeight => _settingsService.Settings.FontWeight;
+
+    // Proportional font sizes for dictionary entries
+    public double DictionaryTermFontSize => TranslationFontSize * 0.90; // ~12px when main is 18px
+    public double DictionarySmallFontSize => TranslationFontSize * 0.80; // ~11px when main is 18px
 
     public string TargetLanguage
     {

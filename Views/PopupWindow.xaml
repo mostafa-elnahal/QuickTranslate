@@ -127,7 +127,8 @@
                     		 PreviewMouseLeftButtonDown="TranslationBox_PreviewMouseLeftButtonDown"
                              Foreground="{StaticResource TextPrimaryBrush}" 
                              FontSize="{Binding DataContext.TranslationFontSize, RelativeSource={RelativeSource AncestorType=Window}}"
-                             FontWeight="Medium"
+                             FontFamily="{Binding DataContext.TranslationFontFamily, RelativeSource={RelativeSource AncestorType=Window}}"
+                             FontWeight="{Binding DataContext.TranslationFontWeight, RelativeSource={RelativeSource AncestorType=Window}}"
                              TextWrapping="Wrap"
                              IsReadOnly="True"
                              Background="Transparent"
@@ -153,7 +154,8 @@
                                             Margin="0,0,0,6">
                                         <TextBlock Text="{Binding PartOfSpeech}" 
                                                    Foreground="{StaticResource AccentBrush}"
-                                                   FontSize="11"
+                                                   FontSize="{Binding DataContext.DictionarySmallFontSize, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                   FontFamily="{Binding DataContext.TranslationFontFamily, RelativeSource={RelativeSource AncestorType=Window}}"
                                                    FontWeight="SemiBold"
                                                    FontStyle="Italic"/>
                                     </Border>
@@ -180,7 +182,8 @@
                                                                             <TextBlock Grid.Column="0" 
                                                                                        Text="{Binding SynonymsText}" 
                                                                                        Foreground="{StaticResource TextSecondaryBrush}" 
-                                                                                       FontSize="{StaticResource FontSizeSmall}"
+                                                                                       FontSize="{Binding DataContext.DictionarySmallFontSize, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                                       FontFamily="{Binding DataContext.TranslationFontFamily, RelativeSource={RelativeSource AncestorType=Window}}"
                                                                                        VerticalAlignment="Center"
                                                                                        TextWrapping="Wrap"
                                                                                        FlowDirection="{Binding DataContext.IsSourceRtl, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToFlowDirection}}"/>
@@ -189,7 +192,8 @@
                                                                             <TextBlock Grid.Column="1" 
                                                                                        Text="{Binding MainTerm}" 
                                                                                        Foreground="{StaticResource TextPrimaryBrush}" 
-                                                                                       FontSize="{StaticResource FontSizeNormal}"
+                                                                                       FontSize="{Binding DataContext.DictionaryTermFontSize, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                                       FontFamily="{Binding DataContext.TranslationFontFamily, RelativeSource={RelativeSource AncestorType=Window}}"
                                                                                        FontWeight="SemiBold"
                                                                                        Margin="8,0,0,0"
                                                                                        FlowDirection="{Binding DataContext.IsRtl, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToFlowDirection}}"/>
@@ -213,11 +217,14 @@
                                                                                         </BulletDecorator.Bullet>
                                                                                         <StackPanel>
                                                                                             <TextBlock Text="{Binding MainTerm}" 
-                                                                                                       Foreground="{StaticResource TextPrimaryBrush}" 
+                                                                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                                                                       FontSize="{Binding DataContext.DictionaryTermFontSize, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                                                       FontFamily="{Binding DataContext.TranslationFontFamily, RelativeSource={RelativeSource AncestorType=Window}}"
                                                                                                        TextWrapping="Wrap"/>
                                                                                             <TextBlock Text="{Binding SynonymsText}" 
                                                                                                        Foreground="{StaticResource TextSecondaryBrush}" 
-                                                                                                       FontSize="11" 
+                                                                                                       FontSize="{Binding DataContext.DictionarySmallFontSize, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                                                       FontFamily="{Binding DataContext.TranslationFontFamily, RelativeSource={RelativeSource AncestorType=Window}}"
                                                                                                        FontStyle="Italic"
                                                                                                        Margin="0,2,0,0"
                                                                                                        TextWrapping="Wrap"
@@ -236,7 +243,9 @@
                                                                         <Setter.Value>
                                                                             <DataTemplate>
                                                                                 <TextBlock Text="{Binding MainTerm}" 
-                                                                                           Foreground="{StaticResource TextSecondaryBrush}" 
+                                                                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                                                                           FontSize="{Binding DataContext.DictionaryTermFontSize, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                                           FontFamily="{Binding DataContext.TranslationFontFamily, RelativeSource={RelativeSource AncestorType=Window}}"
                                                                                            FontStyle="Italic"
                                                                                            Margin="8,2"
                                                                                            TextWrapping="Wrap"

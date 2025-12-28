@@ -49,4 +49,14 @@ public class AppSettings
     /// Font size for the main translation text.
     /// </summary>
     public double FontSize { get; set; } = 18;
+
+    /// <summary>
+    /// Font family for the main translation text.
+    /// </summary>
+    public string FontFamily { get; set; } = "Segoe UI";
+
+    /// <summary>
+    /// Font weight for the main translation text.
+    /// </summary>
+    public string FontWeight { get; set; } = "Medium";
 }

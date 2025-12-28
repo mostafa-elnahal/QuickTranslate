@@ -22,6 +22,8 @@ public class SettingsViewModel : ViewModelBase
     private string _defaultProvider = "Google";
     private string _hotkey = "F1";
     private double _fontSize = 18;
+    private string _fontFamily = "Segoe UI";
+    private string _fontWeight = "Medium";
     private bool _isDirty = false;
     public SettingsViewModel(ISettingsService settingsService)
     {
@@ -68,6 +70,26 @@ public class SettingsViewModel : ViewModelBase
             "Bing",
             "Yandex"
         };
+
+        // Available font families
+        AvailableFontFamilies = new ObservableCollection<string>
+        {
+            "Segoe UI",
+            "Calibri",
+            "Arial",
+            "Consolas",
+            "Georgia"
+        };
+
+        // Available font weights
+        AvailableFontWeights = new ObservableCollection<string>
+        {
+            "Light",
+            "Normal",
+            "Medium",
+            "SemiBold",
+            "Bold"
+        };
     }
 
     #region Properties
@@ -75,6 +97,8 @@ public class SettingsViewModel : ViewModelBase
     public ObservableCollection<string> Categories { get; }
     public ObservableCollection<LanguageOption> AvailableLanguages { get; }
     public ObservableCollection<string> AvailableProviders { get; }
+    public ObservableCollection<string> AvailableFontFamilies { get; }
+    public ObservableCollection<string> AvailableFontWeights { get; }
 
     public string SelectedCategory
     {
@@ -124,6 +148,18 @@ public class SettingsViewModel : ViewModelBase
         set { if (SetProperty(ref _fontSize, value)) IsDirty = true; }
     }
 
+    public string FontFamily
+    {
+        get => _fontFamily;
+        set { if (SetProperty(ref _fontFamily, value)) IsDirty = true; }
+    }
+
+    public string FontWeight
+    {
+        get => _fontWeight;
+        set { if (SetProperty(ref _fontWeight, value)) IsDirty = true; }
+    }
+
     public bool IsDirty
     {
         get => _isDirty;
@@ -152,6 +188,8 @@ public class SettingsViewModel : ViewModelBase
         _settingsService.Settings.DefaultProvider = DefaultProvider;
         _settingsService.Settings.Hotkey = Hotkey;
         _settingsService.Settings.FontSize = FontSize;
+        _settingsService.Settings.FontFamily = FontFamily;
+        _settingsService.Settings.FontWeight = FontWeight;
 
         _settingsService.Save();
         IsDirty = false;
@@ -175,6 +213,8 @@ public class SettingsViewModel : ViewModelBase
         _defaultProvider = settings.DefaultProvider;
         _hotkey = settings.Hotkey;
         _fontSize = settings.FontSize;
+        _fontFamily = settings.FontFamily;
+        _fontWeight = settings.FontWeight;
     }
 }
 

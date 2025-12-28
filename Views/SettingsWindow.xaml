@@ -238,6 +238,8 @@
                                 </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="30"/>
+                                    <RowDefinition Height="30"/>
+                                    <RowDefinition Height="30"/>
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Grid.Row="0" Text="Font size:" VerticalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}"/>
@@ -256,6 +258,33 @@
                                                 Padding="4,0" MinHeight="12" FontSize="8"/>
                                     </StackPanel>
                                 </StackPanel>
+                            </Grid>
+                        </GroupBox>
+                        
+                        <GroupBox Header="Font Style" Style="{StaticResource SettingsGroupBoxStyle}">
+                            <Grid Margin="12,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="140"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="30"/>
+                                    <RowDefinition Height="30"/>
+                                </Grid.RowDefinitions>
+                                
+                                <TextBlock Grid.Row="0" Text="Font family:" VerticalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <ComboBox Grid.Row="0" Grid.Column="1" 
+                                          ItemsSource="{Binding AvailableFontFamilies}"
+                                          SelectedItem="{Binding FontFamily}"
+                                          Style="{StaticResource SettingsComboBoxStyle}"
+                                          VerticalAlignment="Center"/>
+
+                                <TextBlock Grid.Row="1" Text="Font weight:" VerticalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <ComboBox Grid.Row="1" Grid.Column="1" 
+                                          ItemsSource="{Binding AvailableFontWeights}"
+                                          SelectedItem="{Binding FontWeight}"
+                                          Style="{StaticResource SettingsComboBoxStyle}"
+                                          VerticalAlignment="Center"/>
                             </Grid>
                         </GroupBox>
                     </StackPanel>
