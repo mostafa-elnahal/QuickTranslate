@@ -39,6 +39,15 @@ public partial class PopupWindow : Window
         DataContext = _viewModel;
     }
 
+    public static readonly DependencyProperty IsDetailsExpandedProperty = DependencyProperty.Register(
+        nameof(IsDetailsExpanded), typeof(bool), typeof(PopupWindow), new PropertyMetadata(false));
+
+    public bool IsDetailsExpanded
+    {
+        get => (bool)GetValue(IsDetailsExpandedProperty);
+        set => SetValue(IsDetailsExpandedProperty, value);
+    }
+
     /// <summary>
     /// Shows the window near the mouse cursor and starts translation
     /// </summary>

@@ -204,7 +204,9 @@
                                                                     <Setter Property="ContentTemplate">
                                                                         <Setter.Value>
                                                                             <DataTemplate>
-                                                                                <StackPanel Margin="0,4" FlowDirection="{Binding DataContext.IsSourceRtl, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToFlowDirection}}">
+                                                                                <StackPanel Margin="0,4" 
+                                                                                            FlowDirection="{Binding DataContext.IsSourceRtl, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToFlowDirection}}"
+                                                                                            Visibility="{Binding IsDetailsExpanded, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
                                                                                     <BulletDecorator>
                                                                                         <BulletDecorator.Bullet>
                                                                                             <Ellipse Height="4" Width="4" Fill="{StaticResource TextSecondaryBrush}" Margin="0,7,8,0"/>
@@ -238,7 +240,8 @@
                                                                                            FontStyle="Italic"
                                                                                            Margin="8,2"
                                                                                            TextWrapping="Wrap"
-                                                                                           FlowDirection="{Binding DataContext.IsSourceRtl, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToFlowDirection}}"/>
+                                                                                           FlowDirection="{Binding DataContext.IsSourceRtl, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToFlowDirection}}"
+                                                                                           Visibility="{Binding IsDetailsExpanded, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"/>
                                                                             </DataTemplate>
                                                                         </Setter.Value>
                                                                     </Setter>
@@ -254,6 +257,54 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+
+                    <!-- Toggle Button for Details -->
+                    <ToggleButton IsChecked="{Binding IsDetailsExpanded, RelativeSource={RelativeSource AncestorType=Window}}"
+                                  HorizontalAlignment="Center"
+                                  BorderThickness="0"
+                                  Background="Transparent"
+                                  Margin="0,0,0,12"
+                                  Cursor="Hand">
+                        <ToggleButton.Style>
+                            <Style TargetType="ToggleButton">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                            <ControlTemplate TargetType="ToggleButton">
+                                                <Border Background="Transparent" Padding="8,4">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <TextBlock x:Name="Text" Text="Show more details" Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeSmall}" VerticalAlignment="Center"/>
+                                                        <Path x:Name="Icon" 
+                                                              Data="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z" 
+                                                              Fill="{StaticResource TextSecondaryBrush}" 
+                                                              Margin="6,1,0,0" 
+                                                              VerticalAlignment="Center"
+                                                              Height="8"
+                                                              Width="8"
+                                                              Stretch="Uniform"/>
+                                                    </StackPanel>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsChecked" Value="True">
+                                                        <Setter TargetName="Text" Property="Text" Value="Show less"/>
+                                                        <Setter TargetName="Icon" Property="Data" Value="M7.41,15.41L12,10.83L16.59,15.41L18,14L12,8L6,14L7.41,15.41Z"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="Text" Property="Foreground" Value="{StaticResource AccentBrush}"/>
+                                                        <Setter TargetName="Icon" Property="Fill" Value="{StaticResource AccentBrush}"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <!-- Only Visible if we have Rich Details (Def/Example) -->
+                                <Style.Triggers>
+                                     <DataTrigger Binding="{Binding HasRichDetails}" Value="False">
+                                         <Setter Property="Visibility" Value="Collapsed"/>
+                                     </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ToggleButton.Style>
+                    </ToggleButton>
                 </StackPanel>
             </ScrollViewer>
             

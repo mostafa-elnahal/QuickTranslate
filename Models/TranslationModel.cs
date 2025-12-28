@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace QuickTranslate.Models;
 
@@ -27,6 +28,13 @@ public class TranslationModel
     /// Returns true if the source language is a Right-to-Left language.
     /// </summary>
     public bool IsSourceRtl => RtlLanguages.Contains(SourceLanguage);
+
+    /// <summary>
+    /// Returns true if there are any definitions or examples to show in the expanded view.
+    /// </summary>
+    public bool HasRichDetails => DictionaryEntries != null &&
+                                  DictionaryEntries.Any(e => e.EntryType == DictionaryEntryType.Definition ||
+                                                             e.EntryType == DictionaryEntryType.Example);
 }
 
 public enum DictionaryEntryType
