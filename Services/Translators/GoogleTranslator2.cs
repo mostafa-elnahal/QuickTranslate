@@ -127,7 +127,7 @@ public sealed class GoogleTranslator2 : ITranslator, IDisposable
             var inner = document.RootElement[0];
             if (inner.GetArrayLength() > 2)
             {
-                string data = inner[2].GetString();
+                string? data = inner[2].GetString();
                 if (!string.IsNullOrEmpty(data))
                 {
                     return JsonDocument.Parse(data);
