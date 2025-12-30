@@ -19,10 +19,11 @@
     <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}"/>
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryColor}"/>
     <SolidColorBrush x:Key="ErrorBrush" Color="{StaticResource ErrorColor}"/>
+    <SolidColorBrush x:Key="BadgeForegroundBrush" Color="{StaticResource AccentColor}"/>
 
     <!-- Typography -->
     <sys:Double x:Key="FontSizeSmall">11</sys:Double>
-    <sys:Double x:Key="FontSizeNormal">12</sys:Double>
+    <sys:Double x:Key="FontSizeNormal">13</sys:Double>
     <sys:Double x:Key="FontSizeLarge">14</sys:Double>
     <sys:Double x:Key="FontSizeHeader">16</sys:Double>
 

@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.ComponentModel;
 
 namespace QuickTranslate.Models;
 
@@ -29,12 +29,6 @@ public class TranslationModel
     /// </summary>
     public bool IsSourceRtl => RtlLanguages.Contains(SourceLanguage);
 
-    /// <summary>
-    /// Returns true if there are any definitions or examples to show in the expanded view.
-    /// </summary>
-    public bool HasRichDetails => DictionaryEntries != null &&
-                                  DictionaryEntries.Any(e => e.EntryType == DictionaryEntryType.Definition ||
-                                                             e.EntryType == DictionaryEntryType.Example);
 }
 
 public enum DictionaryEntryType
@@ -44,11 +38,51 @@ public enum DictionaryEntryType
     Example      // Usage examples (dt=ex)
 }
 
-public class DictionaryEntry
+public class DictionaryEntry : INotifyPropertyChanged
 {
+    private bool _isExpanded = true;
+
     public string PartOfSpeech { get; set; } = string.Empty; // e.g., "noun", "verb"
     public DictionaryEntryType EntryType { get; set; } = DictionaryEntryType.Translation;
     public List<DefinitionEntry> Definitions { get; set; } = new List<DefinitionEntry>();
+
+    /// <summary>
+    /// Gets the header text based on entry type for UI display.
+    /// </summary>
+    public string HeaderText => EntryType switch
+    {
+        DictionaryEntryType.Translation => PartOfSpeech,
+        DictionaryEntryType.Definition => $"{PartOfSpeech} • definitions",
+        DictionaryEntryType.Example => "Examples",
+        _ => PartOfSpeech
+    };
+
+    /// <summary>
+    /// Whether this section is expanded (showing definitions).
+    /// </summary>
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        set
+        {
+            if (_isExpanded != value)
+            {
+                _isExpanded = value;
+                PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(IsExpanded)));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Initialize expansion state based on entry type.
+    /// Translations start expanded, Definition/Example start collapsed.
+    /// </summary>
+    public void InitializeExpandedState()
+    {
+        _isExpanded = EntryType == DictionaryEntryType.Translation;
+    }
+
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
 }
 
 public class DefinitionEntry

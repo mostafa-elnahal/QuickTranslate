@@ -39,14 +39,7 @@ public partial class PopupWindow : Window
         DataContext = _viewModel;
     }
 
-    public static readonly DependencyProperty IsDetailsExpandedProperty = DependencyProperty.Register(
-        nameof(IsDetailsExpanded), typeof(bool), typeof(PopupWindow), new PropertyMetadata(false));
 
-    public bool IsDetailsExpanded
-    {
-        get => (bool)GetValue(IsDetailsExpandedProperty);
-        set => SetValue(IsDetailsExpandedProperty, value);
-    }
 
     /// <summary>
     /// Shows the window near the mouse cursor and starts translation
@@ -153,6 +146,26 @@ public partial class PopupWindow : Window
             Dispatcher.InvokeAsync(() => ContentScrollViewer.ScrollToVerticalOffset(currentOffset));
 
             e.Handled = true;
+        }
+    }
+
+    private void SectionHeader_Click(object sender, MouseButtonEventArgs e)
+    {
+        // Find the DictionaryEntry by walking up the visual tree
+        if (sender is FrameworkElement element)
+        {
+            // Walk up the visual tree to find the parent with DictionaryEntry as DataContext
+            var current = element;
+            while (current != null)
+            {
+                if (current.DataContext is DictionaryEntry entry)
+                {
+                    entry.IsExpanded = !entry.IsExpanded;
+                    e.Handled = true;
+                    return;
+                }
+                current = System.Windows.Media.VisualTreeHelper.GetParent(current) as FrameworkElement;
+            }
         }
     }
 }

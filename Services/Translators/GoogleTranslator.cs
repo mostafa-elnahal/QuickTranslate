@@ -128,6 +128,7 @@ public class GoogleTranslator : ITranslator, IDisposable
 
                 if (dictEntry.Definitions.Count > 0)
                 {
+                    dictEntry.InitializeExpandedState();
                     dictionaryEntries.Add(dictEntry);
                 }
             }
@@ -169,6 +170,7 @@ public class GoogleTranslator : ITranslator, IDisposable
 
                 if (defDictEntry.Definitions.Count > 0)
                 {
+                    defDictEntry.InitializeExpandedState();
                     dictionaryEntries.Add(defDictEntry);
                 }
             }
@@ -191,6 +193,7 @@ public class GoogleTranslator : ITranslator, IDisposable
                 }
                 if (examplesEntry.Definitions.Count > 0)
                 {
+                    examplesEntry.InitializeExpandedState();
                     dictionaryEntries.Add(examplesEntry);
                 }
             }

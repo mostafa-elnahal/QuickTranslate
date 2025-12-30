@@ -47,6 +47,9 @@ public class PopupViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(TranslationFontWeight));
         OnPropertyChanged(nameof(DictionaryTermFontSize));
         OnPropertyChanged(nameof(DictionarySmallFontSize));
+        OnPropertyChanged(nameof(ChevronHeight));
+        OnPropertyChanged(nameof(ChevronWidth));
+        OnPropertyChanged(nameof(ChevronStrokeThickness));
     }
 
     private void InitializeProviders()
@@ -82,8 +85,13 @@ public class PopupViewModel : ViewModelBase, IDisposable
     public string TranslationFontWeight => _settingsService.Settings.FontWeight;
 
     // Proportional font sizes for dictionary entries
-    public double DictionaryTermFontSize => TranslationFontSize * 0.90; // ~12px when main is 18px
-    public double DictionarySmallFontSize => TranslationFontSize * 0.80; // ~11px when main is 18px
+    public double DictionaryTermFontSize => TranslationFontSize * 0.80; // ~12px when main is 18px
+    public double DictionarySmallFontSize => TranslationFontSize * 0.75; // ~11px when main is 18px
+
+    // Scaled dimensions for the chevron icon (proportional to small font)
+    public double ChevronHeight => DictionarySmallFontSize * 0.75; // ~9px when small font is 12px
+    public double ChevronWidth => ChevronHeight * 0.66; // Aspect ratio ~2:3
+    public double ChevronStrokeThickness => Math.Max(1.0, DictionarySmallFontSize * 0.12); // ~1.5px base
 
     public string TargetLanguage
     {
