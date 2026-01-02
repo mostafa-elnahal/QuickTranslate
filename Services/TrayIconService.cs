@@ -9,16 +9,37 @@ namespace QuickTranslate.Services;
 public class TrayIconService : ITrayIconService
 {
     private NotifyIcon? _trayIcon;
-
+    private Icon? _icon;
 
     public event EventHandler? ExitRequested;
     public event EventHandler? SettingsRequested;
 
     public void Initialize()
     {
+        try
+        {
+            var resourceUri = new Uri("pack://application:,,,/Assets/ico-v2.ico");
+            var streamInfo = System.Windows.Application.GetResourceStream(resourceUri);
+            if (streamInfo != null)
+            {
+                _icon = new Icon(streamInfo.Stream);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Fallback or log? For now we just won't have an icon if this fails, 
+            // or we could throw. But since user explicitly asked for this, 
+            // let's trust it works. If it fails, _icon will be null.
+            // NotifyIcon needs an Icon or it might throw or show nothing.
+            // Let's create a default or empty icon if null? 
+            // Actually, SystemIcons.Application is a good fallback.
+            _icon = (Icon)SystemIcons.Application.Clone();
+            System.Diagnostics.Debug.WriteLine($"Failed to load tray icon: {ex.Message}");
+        }
+
         _trayIcon = new NotifyIcon
         {
-            Icon = CreateTrayIcon(),
+            Icon = _icon,
             Visible = true,
             Text = "QuickTranslate - Press F1 to translate"
         };
@@ -36,8 +57,6 @@ public class TrayIconService : ITrayIconService
         contextMenu.Items.Add(exitItem);
 
         _trayIcon.ContextMenuStrip = contextMenu;
-
-
     }
 
     public void SetVisible(bool visible)
@@ -48,30 +67,6 @@ public class TrayIconService : ITrayIconService
         }
     }
 
-    private Icon CreateTrayIcon()
-    {
-        // Create a 16x16 bitmap
-        var bitmap = new Bitmap(16, 16);
-        using (var g = Graphics.FromImage(bitmap))
-        {
-            g.Clear(Color.Transparent);
-
-            // Draw a simple 'T' letter
-            using (var font = new System.Drawing.Font("Arial", 12, System.Drawing.FontStyle.Bold))
-            using (var brush = new SolidBrush(Color.White))
-            {
-                g.DrawString("T", font, brush, -2, -2);
-            }
-        }
-
-        IntPtr hIcon = bitmap.GetHicon();
-        Icon tempIcon = Icon.FromHandle(hIcon);
-        Icon clonedIcon = (Icon)tempIcon.Clone();
-        PInvoke.DestroyIcon((Windows.Win32.UI.WindowsAndMessaging.HICON)hIcon);
-        bitmap.Dispose();
-        return clonedIcon;
-    }
-
     public void Dispose()
     {
         if (_trayIcon != null)
@@ -79,5 +74,6 @@ public class TrayIconService : ITrayIconService
             _trayIcon.Visible = false;
             _trayIcon.Dispose();
         }
+        _icon?.Dispose();
     }
 }
