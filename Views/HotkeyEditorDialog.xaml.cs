@@ -54,46 +54,9 @@ public partial class HotkeyEditorDialog : Window
             return;
         }
 
-        // Build the hotkey string
         var modifiers = Keyboard.Modifiers;
-        var hotkeyParts = new System.Collections.Generic.List<string>();
-
-        if (modifiers.HasFlag(ModifierKeys.Control))
-            hotkeyParts.Add("Ctrl");
-        if (modifiers.HasFlag(ModifierKeys.Alt))
-            hotkeyParts.Add("Alt");
-        if (modifiers.HasFlag(ModifierKeys.Shift))
-            hotkeyParts.Add("Shift");
-
-        // Convert key to readable string
-        var keyName = key.ToString();
-
-        // Handle special keys
-        if (key >= Key.D0 && key <= Key.D9)
-            keyName = ((int)key - (int)Key.D0).ToString();
-        else if (key >= Key.NumPad0 && key <= Key.NumPad9)
-            keyName = "Num " + ((int)key - (int)Key.NumPad0);
-        else if (key == Key.Multiply)
-            keyName = "Num *";
-        else if (key == Key.Add)
-            keyName = "Num +";
-        else if (key == Key.Subtract)
-            keyName = "Num -";
-        else if (key == Key.Divide)
-            keyName = "Num /";
-        else if (key == Key.Decimal)
-            keyName = "Num .";
-        else if (key == Key.OemPlus)
-            keyName = "+";
-        else if (key == Key.OemMinus)
-            keyName = "-";
-        else if (key == Key.OemPeriod)
-            keyName = ".";
-        else if (key == Key.OemComma)
-            keyName = ",";
-
-        hotkeyParts.Add(keyName);
-        CapturedHotkey = string.Join("+", hotkeyParts);
+        // Format using helper
+        CapturedHotkey = QuickTranslate.Helpers.HotkeyHelper.FormatHotkey(key, modifiers);
     }
 
     private void HotkeyTextBox_GotFocus(object sender, RoutedEventArgs e)

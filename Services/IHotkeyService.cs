@@ -18,7 +18,8 @@ public interface IHotkeyService : IDisposable
     /// <param name="id">Unique identifier for the hotkey.</param>
     /// <param name="hotkeyString">The hotkey string (e.g., "Ctrl+Shift+T").</param>
     /// <param name="window">The window to attach the hotkey to.</param>
-    void Register(int id, string hotkeyString, Window window);
+    /// <returns>True if registration was successful, false otherwise.</returns>
+    bool Register(int id, string hotkeyString, Window window);
 
     /// <summary>
     /// Unregisters the hotkey with the specified ID.

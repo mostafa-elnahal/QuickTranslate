@@ -31,9 +31,9 @@ public class AppSettings
     public string DefaultProvider { get; set; } = "Google";
 
     /// <summary>
-    /// The hotkey combination string (e.g., "F1").
+    /// The hotkey combination string (e.g., "Ctrl+Q").
     /// </summary>
-    public string Hotkey { get; set; } = "F1";
+    public string Hotkey { get; set; } = "Ctrl+Q";
 
     /// <summary>
     /// Saved window width. Null = first launch (use default).

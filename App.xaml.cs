@@ -73,7 +73,7 @@ public partial class App : Application
     {
         if (_settingsService != null && _hotkeyService != null && _popupWindow != null)
         {
-            _hotkeyService.Register(HOTKEY_ID_TRANSLATE, _settingsService.Settings.Hotkey, _popupWindow);
+            RegisterAndNotify(_settingsService.Settings.Hotkey);
         }
     }
 
@@ -135,10 +135,24 @@ public partial class App : Application
         // Initial registration
         if (_settingsService?.Settings.Hotkey != null)
         {
-            _hotkeyService.Register(HOTKEY_ID_TRANSLATE, _settingsService.Settings.Hotkey, _popupWindow);
+            RegisterAndNotify(_settingsService.Settings.Hotkey);
         }
     }
 
+    private void RegisterAndNotify(string hotkey)
+    {
+        if (_hotkeyService == null || _popupWindow == null) return;
+
+        bool success = _hotkeyService.Register(HOTKEY_ID_TRANSLATE, hotkey, _popupWindow);
+        if (!success)
+        {
+            MessageBox.Show(
+                $"Failed to register hotkey '{hotkey}'. It may be in use by another application.",
+                "QuickTranslate",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+    }
     /// <summary>
     /// Handles the hotkey press event
     /// </summary>

@@ -7,6 +7,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Input;
 using Windows.Win32;
 using Windows.Win32.Foundation;
+using Windows.Win32.UI.Input.KeyboardAndMouse;
 
 namespace QuickTranslate.Helpers;
 
@@ -15,6 +16,7 @@ namespace QuickTranslate.Helpers;
 /// </summary>
 internal static class ClipboardHelper
 {
+
     /// <summary>
     /// Stores all supported clipboard formats for preservation.
     /// </summary>
@@ -145,7 +147,7 @@ internal static class ClipboardHelper
     {
         try
         {
-            if (PInvoke.OpenClipboard(new HWND(System.IntPtr.Zero)))
+            if (!PInvoke.OpenClipboard(new HWND(System.IntPtr.Zero)))
             {
                 try
                 {
@@ -304,4 +306,66 @@ internal static class ClipboardHelper
         }
         return string.Empty;
     }
+
+    /// <summary>
+    /// Sends Ctrl+C using SendInput API for reliable copying.
+    /// </summary>
+    public static void SendCopyCommand()
+    {
+        // 1. Prepare inputs
+        // Ctrl Down
+        var inputCtrlDown = new INPUT();
+        inputCtrlDown.type = INPUT_TYPE.INPUT_KEYBOARD;
+        inputCtrlDown.Anonymous.ki.wVk = Windows.Win32.UI.Input.KeyboardAndMouse.VIRTUAL_KEY.VK_CONTROL;
+        inputCtrlDown.Anonymous.ki.dwFlags = 0; // KeyDown
+
+        // C Down
+        var inputCDown = new INPUT();
+        inputCDown.type = INPUT_TYPE.INPUT_KEYBOARD;
+        inputCDown.Anonymous.ki.wVk = Windows.Win32.UI.Input.KeyboardAndMouse.VIRTUAL_KEY.VK_C;
+        inputCDown.Anonymous.ki.dwFlags = 0; // KeyDown
+
+        // C Up
+        var inputCUp = new INPUT();
+        inputCUp.type = INPUT_TYPE.INPUT_KEYBOARD;
+        inputCUp.Anonymous.ki.wVk = Windows.Win32.UI.Input.KeyboardAndMouse.VIRTUAL_KEY.VK_C;
+        inputCUp.Anonymous.ki.dwFlags = KEYBD_EVENT_FLAGS.KEYEVENTF_KEYUP;
+
+        // Ctrl Up
+        var inputCtrlUp = new INPUT();
+        inputCtrlUp.type = INPUT_TYPE.INPUT_KEYBOARD;
+        inputCtrlUp.Anonymous.ki.wVk = Windows.Win32.UI.Input.KeyboardAndMouse.VIRTUAL_KEY.VK_CONTROL;
+        inputCtrlUp.Anonymous.ki.dwFlags = KEYBD_EVENT_FLAGS.KEYEVENTF_KEYUP;
+
+        // 2. Send inputs in two batches to simulate hold duration
+        Span<INPUT> inputsDown = stackalloc INPUT[] { inputCtrlDown, inputCDown };
+        Span<INPUT> inputsUp = stackalloc INPUT[] { inputCUp, inputCtrlUp };
+
+        unsafe
+        {
+            // Press keys
+            fixed (INPUT* pInputsDown = inputsDown)
+            {
+                uint successful = PInvoke.SendInput((uint)inputsDown.Length, pInputsDown, Marshal.SizeOf<INPUT>());
+                if (successful != inputsDown.Length)
+                {
+                    System.Diagnostics.Debug.WriteLine($"SendInput Down failed. Sent {successful}/{inputsDown.Length}");
+                }
+            }
+
+            // Small delay to ensure apps register the key press
+            System.Threading.Thread.Sleep(50);
+
+            // Release keys
+            fixed (INPUT* pInputsUp = inputsUp)
+            {
+                uint successful = PInvoke.SendInput((uint)inputsUp.Length, pInputsUp, Marshal.SizeOf<INPUT>());
+                if (successful != inputsUp.Length)
+                {
+                    System.Diagnostics.Debug.WriteLine($"SendInput Up failed. Sent {successful}/{inputsUp.Length}");
+                }
+            }
+        }
+    }
 }
+

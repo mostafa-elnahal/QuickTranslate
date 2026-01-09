@@ -10,11 +10,11 @@ public class ClipboardService : IClipboardService
     public string CaptureSelection()
     {
         Log("Starting Clipboard Strategy...");
-        
+
         // 1. Preserve ALL clipboard formats
         ClipboardHelper.ClipboardSnapshot? snapshot = null;
-        try 
-        { 
+        try
+        {
             snapshot = ClipboardHelper.SaveSnapshot();
             if (snapshot.HasContent)
             {
@@ -25,16 +25,16 @@ public class ClipboardService : IClipboardService
                 Log("Clipboard was empty.");
             }
         }
-        catch (Exception ex) 
+        catch (Exception ex)
         {
             Log($"Failed to save clipboard: {ex.Message}");
         }
 
         Thread.Sleep(50);
-        
+
         // 2. Clear & Copy selection
         ClipboardHelper.ClearSafe();
-        SendKeys.SendWait("^c");
+        ClipboardHelper.SendCopyCommand();
 
         // 3. Wait for clipboard to populate
         // GetTextWithTimeout handles retries and exceptions internally

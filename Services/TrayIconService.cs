@@ -41,7 +41,7 @@ public class TrayIconService : ITrayIconService
         {
             Icon = _icon,
             Visible = true,
-            Text = "QuickTranslate - Press F1 to translate"
+            Text = "QuickTranslate"
         };
 
         var contextMenu = new ContextMenuStrip();

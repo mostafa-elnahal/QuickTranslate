@@ -20,7 +20,7 @@ public class SettingsViewModel : ViewModelBase
     private string _defaultSourceLanguage = "auto";
     private string _defaultTargetLanguage = "en";
     private string _defaultProvider = "Google";
-    private string _hotkey = "F1";
+    private string _hotkey = "Ctrl+Q";
     private double _fontSize = 18;
     private string _fontFamily = "Segoe UI";
     private string _fontWeight = "Medium";
