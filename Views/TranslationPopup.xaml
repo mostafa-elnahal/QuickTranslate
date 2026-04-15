@@ -8,7 +8,7 @@
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
         mc:Ignorable="d"
         Title="QuickTranslate"
-        Icon="pack://application:,,,/Assets/ico-v2.ico"
+        Icon="pack://application:,,,/Assets/icon.ico"
         Width="600"
         MinWidth="300" MinHeight="100"
         WindowStyle="None"

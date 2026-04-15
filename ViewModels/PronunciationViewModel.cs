@@ -11,6 +11,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 
 namespace QuickTranslate.ViewModels;
 
@@ -18,7 +20,7 @@ namespace QuickTranslate.ViewModels;
 /// ViewModel for the pronunciation popup window.
 /// Displays the source word, IPA phonetics, and handles audio playback.
 /// </summary>
-public class PronunciationViewModel : ViewModelBase, IDisposable
+public partial class PronunciationViewModel : ObservableObject, IDisposable
 {
     // Events to request View actions (since MediaElement is in View)
     public event EventHandler? RequestPlayFromView;
@@ -30,19 +32,65 @@ public class PronunciationViewModel : ViewModelBase, IDisposable
     private IStreamingAudioPlayer? _streamingPlayer;
     private CancellationTokenSource? _streamingCts;
 
+    [ObservableProperty]
     private string _originalText = string.Empty;
+
+    [ObservableProperty]
     private string _phoneticsDisplay = string.Empty;
+
+    partial void OnPhoneticsDisplayChanged(string value) => OnPropertyChanged(nameof(HasPhonetics));
+
     private string _detectedLanguageCode = "en";
+
+    [ObservableProperty]
     private Uri? _audioUri;
+
+    [ObservableProperty]
     private bool _isPlaying;
+
+    [ObservableProperty]
     private bool _isVisible = false;
-    private int _pronunciationGeneration = 0;
+
+    [ObservableProperty]
     private bool _isStreamingMode;
+
+    [ObservableProperty]
     private bool _isDownloadingChunks;
 
+    [ObservableProperty]
     private TimeSpan _totalDuration;
+
+    [ObservableProperty]
     private TimeSpan _currentPosition;
+
+    [ObservableProperty]
     private string _languageName = "English";
+
+    [ObservableProperty]
+    private bool _isSingleWord;
+
+    [ObservableProperty]
+    private bool _isSlowMode;
+
+    async partial void OnIsSlowModeChanged(bool value)
+    {
+        await UpdateAudioUriAsync();
+    }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(RestartCommand))]
+    private bool _isLoading;
+
+    [ObservableProperty]
+    private string _statusMessage = string.Empty;
+
+    /// <summary>
+    /// Generation counter to track translation sessions.
+    /// Incremented on each new translation to detect stale async callbacks.
+    /// </summary>
+    private int _pronunciationGeneration = 0;
+
+    public int PronunciationGeneration => _pronunciationGeneration;
 
     public PronunciationViewModel(
         IPronunciationService pronunciationService,
@@ -50,24 +98,16 @@ public class PronunciationViewModel : ViewModelBase, IDisposable
     {
         _pronunciationService = pronunciationService;
         _settingsService = settingsService;
-
-        // Initialize commands
-        PlayPauseCommand = new RelayCommand(ExecutePlayPause);
-        RestartCommand = new RelayCommand(ExecuteRestart, () => CanRestart);
     }
 
     #region Commands
 
-    public ICommand PlayPauseCommand { get; }
-    public ICommand RestartCommand { get; }
-
-    private bool CanRestart => IsStreamingMode ? (_streamingPlayer != null && !_isDownloadingChunks) : true;
-
-    private void ExecutePlayPause()
+    [RelayCommand]
+    private void PlayPause()
     {
         System.Diagnostics.Debug.WriteLine($"[PlayPause] Clicked. _streamingPlayer={_streamingPlayer != null}, IsPlaying={IsPlaying}");
 
-        if (_isStreamingMode)
+        if (IsStreamingMode)
         {
             if (_streamingPlayer == null) return;
 
@@ -83,12 +123,11 @@ public class PronunciationViewModel : ViewModelBase, IDisposable
             }
             else
             {
-                ExecuteRestart();
+                Restart();
             }
         }
         else
         {
-            // Non-streaming (MediaElement)
             if (IsPlaying)
             {
                 RequestPauseFromView?.Invoke(this, EventArgs.Empty);
@@ -102,11 +141,12 @@ public class PronunciationViewModel : ViewModelBase, IDisposable
         }
     }
 
-    private void ExecuteRestart()
+    [RelayCommand(CanExecute = nameof(CanRestart))]
+    private void Restart()
     {
         System.Diagnostics.Debug.WriteLine($"[Restart] Clicked. _streamingPlayer={_streamingPlayer != null}");
 
-        if (_isStreamingMode)
+        if (IsStreamingMode)
         {
             if (_streamingPlayer != null)
             {
@@ -121,123 +161,17 @@ public class PronunciationViewModel : ViewModelBase, IDisposable
         }
     }
 
+    private bool CanRestart => IsStreamingMode ? (_streamingPlayer != null && !IsDownloadingChunks) : true;
+
     #endregion
 
     #region Properties
 
-    /// <summary>
-    /// Gets the current pronunciation generation. Used to guard against race conditions.
-    /// </summary>
-    public int PronunciationGeneration => _pronunciationGeneration;
-
-    /// <summary>
-    /// The original text to pronounce.
-    /// </summary>
-    public string OriginalText
-    {
-        get => _originalText;
-        set => SetProperty(ref _originalText, value);
-    }
-
-    /// <summary>
-    /// Collection of syllables to display and animate.
-    /// </summary>
     public System.Collections.ObjectModel.ObservableCollection<SyllableItem> Syllables { get; } = new();
 
-    /// <summary>
-    /// URI for TTS audio playback.
-    /// </summary>
-    public Uri? AudioUri
-    {
-        get => _audioUri;
-        set => SetProperty(ref _audioUri, value);
-    }
+    public bool HasPhonetics => !string.IsNullOrEmpty(PhoneticsDisplay);
 
-    /// <summary>
-    /// Whether audio is currently playing.
-    /// </summary>
-    public bool IsPlaying
-    {
-        get => _isPlaying;
-        set => SetProperty(ref _isPlaying, value);
-    }
-
-    private bool _isSingleWord;
-    public bool IsSingleWord
-    {
-        get => _isSingleWord;
-        set => SetProperty(ref _isSingleWord, value);
-    }
-
-    private bool _isSlowMode;
-    public bool IsSlowMode
-    {
-        get => _isSlowMode;
-        set
-        {
-            if (SetProperty(ref _isSlowMode, value))
-            {
-                // Refresh audio URI when slow mode changes via Service (fire and forget)
-                _ = UpdateAudioUriAsync();
-            }
-        }
-    }
-
-    public bool IsVisible
-    {
-        get => _isVisible;
-        set => SetProperty(ref _isVisible, value);
-    }
-
-    /// <summary>
-    /// IPA phonetics display string (e.g., "/ˌpɹɑfəˈlæksɪs/")
-    /// </summary>
-    public string PhoneticsDisplay
-    {
-        get => _phoneticsDisplay;
-        set
-        {
-            if (SetProperty(ref _phoneticsDisplay, value))
-            {
-                OnPropertyChanged(nameof(HasPhonetics));
-            }
-        }
-    }
-
-    /// <summary>
-    /// Whether phonetics data is available.
-    /// </summary>
-    public bool HasPhonetics => !string.IsNullOrEmpty(_phoneticsDisplay);
-
-    /// <summary>
-    /// Whether streaming mode is active (bypasses MediaElement, uses NAudio).
-    /// </summary>
-    public bool IsStreamingMode
-    {
-        get => _isStreamingMode;
-        private set => SetProperty(ref _isStreamingMode, value);
-    }
-
-    public TimeSpan TotalDuration
-    {
-        get => _totalDuration;
-        set => SetProperty(ref _totalDuration, value);
-    }
-
-    public TimeSpan CurrentPosition
-    {
-        get => _currentPosition;
-        set => SetProperty(ref _currentPosition, value);
-    }
-
-    public string LanguageName
-    {
-        get => _languageName;
-        set => SetProperty(ref _languageName, value);
-    }
-
-    // Font settings from user preferences
-    public double FontSize => _settingsService.Settings.FontSize * 2.0; // Large for pronunciation focus
+    public double FontSize => _settingsService.Settings.FontSize * 2.0;
     public string FontFamily => _settingsService.Settings.FontFamily;
     public double PhoneticsFontSize => _settingsService.Settings.FontSize * 1.5;
 
@@ -245,10 +179,6 @@ public class PronunciationViewModel : ViewModelBase, IDisposable
 
     #region Public Methods
 
-    /// <summary>
-    /// Prepares the window for loading state - shows immediately with spinner.
-    /// Called before LoadPronunciationAsync to ensure window is visible during load.
-    /// </summary>
     public void PrepareForLoading(string text)
     {
         _pronunciationGeneration++;
@@ -258,12 +188,8 @@ public class PronunciationViewModel : ViewModelBase, IDisposable
         StatusMessage = string.Empty;
     }
 
-    /// <summary>
-    /// Loads pronunciation data for the given text.
-    /// </summary>
     public async Task LoadPronunciationAsync(string text)
     {
-        // Skip setup if PrepareForLoading was already called (detected via IsLoading)
         bool alreadyPrepared = IsLoading && OriginalText == text?.Trim();
 
         if (!alreadyPrepared)
@@ -284,29 +210,24 @@ public class PronunciationViewModel : ViewModelBase, IDisposable
 
         try
         {
-            // Determine mode
             var words = OriginalText.Split(new[] { ' ', '\r', '\n', '\t' }, StringSplitOptions.RemoveEmptyEntries);
             IsSingleWord = words.Length == 1;
 
-            // Delegate business logic to service
             var result = await _pronunciationService.GetPronunciationAsync(OriginalText);
 
             if (!result.IsSuccess)
             {
                 StatusMessage = result.Message;
-                // Fallback for syllable display
                 Syllables.Add(new SyllableItem { Text = OriginalText });
-                await UpdateAudioUriAsync(); // Try getting audio anyway (e.g. if partial data)
+                await UpdateAudioUriAsync();
                 return;
             }
 
             var data = result.Data!;
 
-            // Bind data
             _detectedLanguageCode = data.DetectedLanguageCode;
             LanguageName = GetLanguageName(_detectedLanguageCode);
 
-            // Only show deep details for single words
             if (IsSingleWord)
             {
                 if (!string.IsNullOrEmpty(data.Phonetics))
@@ -321,15 +242,13 @@ public class PronunciationViewModel : ViewModelBase, IDisposable
             }
             else
             {
-                // Long text mode: Clear any phonetics/syllables that might have been returned
                 PhoneticsDisplay = string.Empty;
                 Syllables.Clear();
             }
 
-            // Sync initial state
             IsSlowMode = false;
+            OnPropertyChanged(nameof(IsSlowMode));
 
-            // Audio URI might have been pre-fetched by the provider
             if (data.AudioUri != null)
             {
                 AudioUri = data.AudioUri;
@@ -338,8 +257,6 @@ public class PronunciationViewModel : ViewModelBase, IDisposable
             {
                 await UpdateAudioUriAsync();
             }
-
-            System.Diagnostics.Debug.WriteLine($"Pronunciation loaded: {OriginalText}, IsSingleWord: {IsSingleWord}");
         }
         catch (Exception ex)
         {
@@ -362,56 +279,36 @@ public class PronunciationViewModel : ViewModelBase, IDisposable
         IsPlaying = false;
     }
 
-    private bool _isLoading;
-    public bool IsLoading
-    {
-        get => _isLoading;
-        set => SetProperty(ref _isLoading, value);
-    }
-
-    private string _statusMessage = string.Empty;
-    public string StatusMessage
-    {
-        get => _statusMessage;
-        set => SetProperty(ref _statusMessage, value);
-    }
-
     private async Task UpdateAudioUriAsync()
     {
         if (string.IsNullOrEmpty(OriginalText)) return;
 
         IsLoading = true;
         StatusMessage = string.Empty;
-        AudioUri = null; // Clear old audio while loading
-        StopStreaming(); // Stop any active streaming
+        AudioUri = null;
+        StopStreaming();
 
         try
         {
-            // Capture generation to prevent race conditions
             int currentGen = _pronunciationGeneration;
 
-            // Check if provider supports streaming
             if (_pronunciationService.SupportsStreaming)
             {
-                // Use streaming mode
                 IsStreamingMode = true;
                 _streamingPlayer = new NAudioStreamingPlayer();
                 _streamingCts = new CancellationTokenSource();
 
-                // Subscribe to playback completed event
                 _streamingPlayer.PlaybackCompleted += (s, e) =>
                 {
-                    // Only stop playing if we are done downloading all chunks
-                    if (!_isDownloadingChunks)
+                    if (!IsDownloadingChunks)
                     {
                         IsPlaying = false;
                     }
                 };
 
-                // Smart Chunking: Split text into sentences/chunks to reduce Time To First Token
                 var chunks = TextChunker.ChunkText(OriginalText);
-                _isDownloadingChunks = true;
-                IsPlaying = true; // Set playing to true immediately as we expect audio
+                IsDownloadingChunks = true;
+                IsPlaying = true;
 
                 foreach (var chunk in chunks)
                 {
@@ -432,17 +329,15 @@ public class PronunciationViewModel : ViewModelBase, IDisposable
 
                     if (!result.IsSuccess)
                     {
-                        // If a chunk fails, stop DOWNLOADING, but let PLAYER continue playing buffer.
                         StatusMessage = $"Streaming interrupted: {result.Message}";
-                        break; // Exit loop, _isDownloadingChunks set to false, PlaybackCompleted handles the rest
+                        break;
                     }
                 }
 
-                _isDownloadingChunks = false;
+                IsDownloadingChunks = false;
             }
             else
             {
-                // Use file-based mode (MediaElement)
                 IsStreamingMode = false;
                 var result = await _pronunciationService.GetAudioUriAsync(OriginalText, _detectedLanguageCode, IsSlowMode);
 
@@ -470,14 +365,9 @@ public class PronunciationViewModel : ViewModelBase, IDisposable
         }
     }
 
-
-
-    /// <summary>
-    /// Stops any active streaming playback and cleans up resources.
-    /// </summary>
     public void StopStreaming()
     {
-        _isDownloadingChunks = false;
+        IsDownloadingChunks = false;
         _streamingCts?.Cancel();
         _streamingPlayer?.Stop();
         _streamingPlayer?.Dispose();
@@ -486,45 +376,30 @@ public class PronunciationViewModel : ViewModelBase, IDisposable
         _streamingCts = null;
     }
 
-    /// <summary>
-    /// Animates the syllables based on total audio duration.
-    /// </summary>
     public async Task AnimateSyllablesAsync(TimeSpan totalDuration)
     {
         if (Syllables.Count == 0) return;
 
-        // Reset all
         foreach (var s in Syllables) s.IsActive = false;
 
         double durationMs = totalDuration.TotalMilliseconds;
-        // If slow mode (handled by MediaElement SpeedRatio), the *actual* wall-clock time is duration / ratio.
-        // BUT MediaElement.NaturalDuration usually reports the *source* duration.
-        // If we slow down playback, we must scale our wait times.
-        // We'll assume the caller passes the EFFECTIVE duration (NaturalDuration / SpeedRatio).
-
         int syllableCount = Syllables.Count;
         int interval = (int)(durationMs / syllableCount);
 
         for (int i = 0; i < syllableCount; i++)
         {
-            if (!_isPlaying) break; // Check cancellation
+            if (!IsPlaying) break;
 
-            // Deactivate previous
             if (i > 0) Syllables[i - 1].IsActive = false;
 
-            // Activate current
             Syllables[i].IsActive = true;
 
             await Task.Delay(interval);
         }
 
-        // Cleanup
         if (Syllables.Count > 0) Syllables[Syllables.Count - 1].IsActive = false;
     }
 
-    /// <summary>
-    /// Hides the pronunciation window.
-    /// </summary>
     public void HideWindow()
     {
         _pronunciationGeneration++;

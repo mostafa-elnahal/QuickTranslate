@@ -6,7 +6,7 @@
         xmlns:c="clr-namespace:QuickTranslate.Converters"
         mc:Ignorable="d"
         Title="QuickTranslate - Pronunciation"
-        Icon="pack://application:,,,/Assets/ico-v2.ico"
+        Icon="pack://application:,,,/Assets/icon.ico"
         MinWidth="300" MinHeight="100"
         WindowStyle="None"
         AllowsTransparency="True"

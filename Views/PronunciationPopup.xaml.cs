@@ -192,6 +192,18 @@ public partial class PronunciationPopup : Window
         _sizingService?.ApplySize(this, WindowType.Pronunciation);
     }
 
+    protected override void OnPreviewMouseDown(MouseButtonEventArgs e)
+    {
+        base.OnPreviewMouseDown(e);
+
+        // Ensure the window is activated when clicked
+        if (!IsActive || !IsKeyboardFocusWithin)
+        {
+            Activate();
+            Focus();
+        }
+    }
+
     private void DisableMaximization()
     {
         var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;

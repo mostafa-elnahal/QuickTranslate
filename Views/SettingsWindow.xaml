@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="Settings"
-        Icon="pack://application:,,,/Assets/ico-v2.ico"
+        Icon="pack://application:,,,/Assets/icon.ico"
         Width="600"
         Height="400"
         WindowStartupLocation="CenterScreen"

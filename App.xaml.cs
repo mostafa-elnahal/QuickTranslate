@@ -7,6 +7,8 @@ using QuickTranslate.Views;
 using QuickTranslate.Services.Providers;
 using System.Collections.Generic;
 
+using Microsoft.Extensions.DependencyInjection;
+
 namespace QuickTranslate;
 
 /// <summary>
@@ -14,22 +16,7 @@ namespace QuickTranslate;
 /// </summary>
 public partial class App : Application
 {
-    // Translation popup
-    private TranslationPopup? _translationPopup;
-    private PopupViewModel? _translationViewModel;
-
-    // Pronunciation popup
-    private PronunciationPopup? _pronunciationPopup;
-    private PronunciationViewModel? _pronunciationViewModel;
-
-    // Services
-    private IClipboardService? _clipboardService;
-    private IHotkeyService? _hotkeyService;
-    private ITrayIconService? _trayIconService;
-    private IWindowPositioningService? _positioningService;
-    private IWindowSizingService? _sizingService;
-    private ISettingsService? _settingsService;
-    private ITranslationService? _translationService;
+    private IServiceProvider? _serviceProvider;
 
     public App()
     {
@@ -52,83 +39,90 @@ public partial class App : Application
 
     private void Application_Startup(object sender, StartupEventArgs e)
     {
-        // Initialize Services
-        _settingsService = new SettingsService();
-        _hotkeyService = new HotkeyService();
-        _clipboardService = new ClipboardService();
-        _trayIconService = new TrayIconService();
-        _positioningService = new WindowPositioningService();
-        _sizingService = new WindowSizingService(_settingsService);
-        _translationService = new GTranslateService();
-        IDialogService dialogService = new DialogService();
+        var services = new ServiceCollection();
+        ConfigureServices(services);
+        _serviceProvider = services.BuildServiceProvider();
 
-        // Create syllable service for pronunciation
-        ISyllableService syllableService = new SyllableService();
+        // Start services
+        var trayIconService = _serviceProvider.GetRequiredService<ITrayIconService>();
+        trayIconService.Initialize();
+        trayIconService.ExitRequested += (s, args) => Shutdown();
+        trayIconService.SettingsRequested += (s, args) => OpenSettingsWindow();
 
-        // Register Providers
-        var providers = new List<IPronunciationProvider>
-        {
-            new GooglePronunciationProvider(_translationService, syllableService),
-            new GeminiPronunciationProvider(_translationService, syllableService, _settingsService)
-        };
-
-        IPronunciationService pronunciationService = new PronunciationService(providers, _settingsService);
-
-        // Initialize Translation Popup (Composition Root)
-        _translationViewModel = new PopupViewModel(_translationService, _settingsService, pronunciationService, _clipboardService);
-        _translationPopup = new TranslationPopup(_translationViewModel, _positioningService, _sizingService);
-
-        // Initialize Pronunciation Popup
-        _pronunciationViewModel = new PronunciationViewModel(pronunciationService, _settingsService);
-        _pronunciationPopup = new PronunciationPopup(_pronunciationViewModel, _positioningService, _sizingService);
-
-        // Setup system tray icon
-        SetupTrayIcon();
-
-        // Register global hotkeys
+        // Register hotkeys
         RegisterGlobalHotkeys();
 
         // Listen for setting changes
-        _settingsService.SettingsChanged += OnSettingsChanged;
+        var settingsService = _serviceProvider.GetRequiredService<ISettingsService>();
+        settingsService.SettingsChanged += OnSettingsChanged;
+    }
+
+    private void ConfigureServices(IServiceCollection services)
+    {
+        // Core Services
+        services.AddSingleton<ISettingsService, SettingsService>();
+        services.AddSingleton<IHotkeyService, HotkeyService>();
+        services.AddSingleton<IClipboardService, ClipboardService>();
+        services.AddSingleton<ITrayIconService, TrayIconService>();
+        services.AddSingleton<IWindowPositioningService, WindowPositioningService>();
+        services.AddSingleton<ITranslationService, GTranslateService>();
+        services.AddSingleton<IDialogService, DialogService>();
+        services.AddSingleton<ISyllableService, SyllableService>();
+
+        // Conditional Sizing Service (factory pattern for legacy support if needed, but here simple)
+        services.AddSingleton<IWindowSizingService>(sp => 
+            new WindowSizingService(sp.GetRequiredService<ISettingsService>()));
+
+        // Pronunciation Providers & Service
+        services.AddSingleton<IPronunciationProvider>(sp => 
+            new GooglePronunciationProvider(
+                sp.GetRequiredService<ITranslationService>(), 
+                sp.GetRequiredService<ISyllableService>()));
+        
+        services.AddSingleton<IPronunciationProvider>(sp => 
+            new GeminiPronunciationProvider(
+                sp.GetRequiredService<ITranslationService>(), 
+                sp.GetRequiredService<ISyllableService>(),
+                sp.GetRequiredService<ISettingsService>()));
+
+        services.AddSingleton<IPronunciationService>(sp => 
+            new PronunciationService(
+                sp.GetServices<IPronunciationProvider>(), 
+                sp.GetRequiredService<ISettingsService>()));
+
+        // ViewModels
+        services.AddSingleton<PopupViewModel>();
+        services.AddSingleton<PronunciationViewModel>();
+        services.AddTransient<SettingsViewModel>();
+
+        // Windows/Views
+        services.AddSingleton<TranslationPopup>();
+        services.AddSingleton<PronunciationPopup>();
     }
 
     private void OnSettingsChanged(object? sender, EventArgs e)
     {
-        if (_settingsService != null && _hotkeyService != null && _translationPopup != null)
+        if (_serviceProvider != null)
         {
-            RegisterTranslationHotkey(_settingsService.Settings.Hotkey);
-            RegisterPronunciationHotkey(_settingsService.Settings?.PronunciationHotkey ?? "Ctrl+Shift+P");
+            var settingsService = _serviceProvider.GetRequiredService<ISettingsService>();
+            RegisterTranslationHotkey(settingsService.Settings.Hotkey);
+            RegisterPronunciationHotkey(settingsService.Settings?.PronunciationHotkey ?? "Ctrl+Shift+P");
         }
     }
 
     private void Application_Exit(object sender, ExitEventArgs e)
     {
-        // Cleanup
-        _hotkeyService?.Dispose();
-        _trayIconService?.Dispose();
-        _translationViewModel?.Dispose();
-        _pronunciationViewModel?.Dispose();
-        if (_translationService is IDisposable disposableService)
+        if (_serviceProvider is IDisposable disposableProvider)
         {
-            disposableService.Dispose();
+            disposableProvider.Dispose();
         }
-    }
-
-    private void SetupTrayIcon()
-    {
-        if (_trayIconService == null) return;
-
-        _trayIconService.Initialize();
-
-        _trayIconService.ExitRequested += (s, args) => Shutdown();
-        _trayIconService.SettingsRequested += (s, args) => OpenSettingsWindow();
     }
 
     private SettingsWindow? _settingsWindow;
 
     private void OpenSettingsWindow()
     {
-        if (_settingsService == null || _translationService == null) return;
+        if (_serviceProvider == null) return;
 
         // If window is already open, just focus it
         if (_settingsWindow != null)
@@ -141,7 +135,7 @@ public partial class App : Application
             return;
         }
 
-        var viewModel = new SettingsViewModel(_settingsService, new DialogService(), _translationService);
+        var viewModel = _serviceProvider.GetRequiredService<SettingsViewModel>();
         _settingsWindow = new SettingsWindow(viewModel);
 
         // Handle closure to clear reference
@@ -157,28 +151,26 @@ public partial class App : Application
 
     private void RegisterGlobalHotkeys()
     {
-        if (_hotkeyService == null) return;
+        if (_serviceProvider == null) return;
+        var hotkeyService = _serviceProvider.GetRequiredService<IHotkeyService>();
+        var settingsService = _serviceProvider.GetRequiredService<ISettingsService>();
 
-        _hotkeyService.HotkeyPressed += OnHotkeyPressed;
+        hotkeyService.HotkeyPressed += OnHotkeyPressed;
 
-        // Register Translation hotkey (Ctrl+Q by default)
-        if (_settingsService?.Settings.Hotkey != null && _translationPopup != null)
-        {
-            RegisterTranslationHotkey(_settingsService.Settings.Hotkey);
-        }
+        // Register Translation hotkey
+        RegisterTranslationHotkey(settingsService.Settings.Hotkey);
 
-        // Register Pronunciation hotkey from settings
-        if (_pronunciationPopup != null && _settingsService != null)
-        {
-            RegisterPronunciationHotkey(_settingsService.Settings?.PronunciationHotkey ?? "Ctrl+Shift+P");
-        }
+        // Register Pronunciation hotkey
+        RegisterPronunciationHotkey(settingsService.Settings?.PronunciationHotkey ?? "Ctrl+Shift+P");
     }
 
     private void RegisterTranslationHotkey(string hotkey)
     {
-        if (_hotkeyService == null || _translationPopup == null) return;
+        if (_serviceProvider == null) return;
+        var hotkeyService = _serviceProvider.GetRequiredService<IHotkeyService>();
+        var translationPopup = _serviceProvider.GetRequiredService<TranslationPopup>();
 
-        bool success = _hotkeyService.Register(HOTKEY_ID_TRANSLATE, hotkey, _translationPopup);
+        bool success = hotkeyService.Register(HOTKEY_ID_TRANSLATE, hotkey, translationPopup);
         if (!success)
         {
             MessageBox.Show(
@@ -191,9 +183,11 @@ public partial class App : Application
 
     private void RegisterPronunciationHotkey(string hotkey)
     {
-        if (_hotkeyService == null || _pronunciationPopup == null) return;
+        if (_serviceProvider == null) return;
+        var hotkeyService = _serviceProvider.GetRequiredService<IHotkeyService>();
+        var pronunciationPopup = _serviceProvider.GetRequiredService<PronunciationPopup>();
 
-        bool success = _hotkeyService.Register(HOTKEY_ID_PRONUNCIATION, hotkey, _pronunciationPopup);
+        bool success = hotkeyService.Register(HOTKEY_ID_PRONUNCIATION, hotkey, pronunciationPopup);
         if (!success)
         {
             MessageBox.Show(
@@ -211,7 +205,8 @@ public partial class App : Application
     /// </summary>
     private async void OnHotkeyPressed(object? sender, int hotkeyId)
     {
-        if (_clipboardService == null) return;
+        if (_serviceProvider == null) return;
+        var clipboardService = _serviceProvider.GetRequiredService<IClipboardService>();
 
         // Run capture on STA thread (required for clipboard/SendKeys)
         string capturedText = string.Empty;
@@ -221,7 +216,7 @@ public partial class App : Application
             var tcs = new TaskCompletionSource<string>();
             var thread = new System.Threading.Thread(() =>
             {
-                try { tcs.SetResult(_clipboardService.CaptureSelection()); }
+                try { tcs.SetResult(clipboardService.CaptureSelection()); }
                 catch (Exception ex) { tcs.SetException(ex); }
             });
             thread.SetApartmentState(System.Threading.ApartmentState.STA);
@@ -236,23 +231,28 @@ public partial class App : Application
             return;
         }
 
+        var translationViewModel = _serviceProvider.GetRequiredService<PopupViewModel>();
+        var pronunciationViewModel = _serviceProvider.GetRequiredService<PronunciationViewModel>();
+        var translationPopup = _serviceProvider.GetRequiredService<TranslationPopup>();
+        var pronunciationPopup = _serviceProvider.GetRequiredService<PronunciationPopup>();
+
         switch (hotkeyId)
         {
             case HOTKEY_ID_TRANSLATE:
                 // Close pronunciation popup if open
-                _pronunciationViewModel?.HideWindow();
+                pronunciationViewModel.HideWindow();
                 // Show translation popup
-                _translationPopup?.ShowAndTranslate(capturedText);
+                translationPopup.ShowAndTranslate(capturedText);
                 break;
 
             case HOTKEY_ID_PRONUNCIATION:
                 // Close translation popup if open
-                _translationViewModel?.HideWindow();
+                translationViewModel.HideWindow();
 
                 // Show pronunciation popup only if text is not empty
                 if (!string.IsNullOrWhiteSpace(capturedText))
                 {
-                    _pronunciationPopup?.ShowAndPronounce(capturedText);
+                    pronunciationPopup.ShowAndPronounce(capturedText);
                 }
                 break;
         }

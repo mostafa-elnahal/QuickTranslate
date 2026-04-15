@@ -108,6 +108,18 @@ public partial class TranslationPopup : Window
         _sizingService.ApplySize(this);
     }
 
+    protected override void OnPreviewMouseDown(MouseButtonEventArgs e)
+    {
+        base.OnPreviewMouseDown(e);
+
+        // Ensure the window is activated when clicked, especially when shown from the background
+        if (!IsActive || !IsKeyboardFocusWithin)
+        {
+            Activate();
+            Focus();
+        }
+    }
+
     private void DisableMaximization()
     {
         var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;

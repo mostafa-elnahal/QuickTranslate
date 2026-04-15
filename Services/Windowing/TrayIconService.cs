@@ -18,7 +18,7 @@ public class TrayIconService : ITrayIconService
     {
         try
         {
-            var resourceUri = new Uri("pack://application:,,,/Assets/ico-v2.ico");
+            var resourceUri = new Uri("pack://application:,,,/Assets/icon.ico");
             var streamInfo = System.Windows.Application.GetResourceStream(resourceUri);
             if (streamInfo != null)
             {
