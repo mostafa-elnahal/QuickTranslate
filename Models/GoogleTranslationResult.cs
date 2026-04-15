@@ -17,6 +17,11 @@ public class GoogleTranslationResult : ITranslationResult<Language>, ITranslatio
     public string Service { get; }
     public string? Transliteration { get; }
 
+    /// <summary>
+    /// Transliteration of the source text (pronunciation of the original word).
+    /// </summary>
+    public string? SourceTransliteration { get; }
+
     // Rich Dictionary Data
     public List<DictionaryEntry> DictionaryEntries { get; }
 
@@ -27,7 +32,8 @@ public class GoogleTranslationResult : ITranslationResult<Language>, ITranslatio
         Language sourceLanguage,
         string service,
         List<DictionaryEntry>? dictionaryEntries = null,
-        string? transliteration = null)
+        string? transliteration = null,
+        string? sourceTransliteration = null)
     {
         Translation = translation;
         Source = source;
@@ -36,6 +42,7 @@ public class GoogleTranslationResult : ITranslationResult<Language>, ITranslatio
         Service = service;
         DictionaryEntries = dictionaryEntries ?? new List<DictionaryEntry>();
         Transliteration = transliteration;
+        SourceTransliteration = sourceTransliteration;
     }
 
     ILanguage ITranslationResult<ILanguage>.SourceLanguage => SourceLanguage;

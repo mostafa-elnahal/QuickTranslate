@@ -11,6 +11,7 @@ public class TranslatorFactory : ITranslatorFactory
 {
     private static readonly string[] _availableProviders = [
         "Google",
+        "Google (RPC)",
         //"Google (RPC)",
         "Bing",
         "Microsoft",
@@ -33,7 +34,7 @@ public class TranslatorFactory : ITranslatorFactory
         return providerName switch
         {
             "Google" => new QuickTranslate.Services.Translators.GoogleTranslator(),
-            //"Google (RPC)" => new QuickTranslate.Services.Translators.GoogleTranslator2(),
+            "Google (RPC)" => new QuickTranslate.Services.Translators.GoogleTranslator2(),
             "Bing" => new BingTranslator(),
             "Microsoft" => new MicrosoftTranslator(),
             "Yandex" => new YandexTranslator(),

@@ -79,4 +79,23 @@ public class ClipboardService : IClipboardService
         }
         catch { }
     }
+
+    public void SetText(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return;
+        
+        for (int i = 0; i < 5; i++)
+        {
+            try
+            {
+                System.Windows.Clipboard.SetText(text);
+                return;
+            }
+            catch (Exception ex)
+            {
+                Log($"Clipboard set text failed (attempt {i + 1}): {ex.Message}");
+                Thread.Sleep(50);
+            }
+        }
+    }
 }

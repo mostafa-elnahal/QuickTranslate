@@ -11,11 +11,11 @@ public interface IWindowSizingService
     /// Applies saved size or initial constraints to the window.
     /// Call this in OnSourceInitialized.
     /// </summary>
-    void ApplySize(Window window);
+    void ApplySize(Window window, WindowType type = WindowType.Translation);
 
     /// <summary>
     /// Saves current window size to settings.
     /// Call this when window is resized.
     /// </summary>
-    void SaveSize(Window window);
+    void SaveSize(Window window, WindowType type = WindowType.Translation);
 }

@@ -313,6 +313,13 @@ internal static class ClipboardHelper
     public static void SendCopyCommand()
     {
         // 1. Prepare inputs
+
+        // Release Shift and Alt (modifiers that might interfere with Ctrl+C)
+        var inputShiftUp = new INPUT();
+        inputShiftUp.type = INPUT_TYPE.INPUT_KEYBOARD;
+        inputShiftUp.Anonymous.ki.wVk = Windows.Win32.UI.Input.KeyboardAndMouse.VIRTUAL_KEY.VK_SHIFT;
+        inputShiftUp.Anonymous.ki.dwFlags = KEYBD_EVENT_FLAGS.KEYEVENTF_KEYUP;
+
         // Ctrl Down
         var inputCtrlDown = new INPUT();
         inputCtrlDown.type = INPUT_TYPE.INPUT_KEYBOARD;
@@ -337,12 +344,24 @@ internal static class ClipboardHelper
         inputCtrlUp.Anonymous.ki.wVk = Windows.Win32.UI.Input.KeyboardAndMouse.VIRTUAL_KEY.VK_CONTROL;
         inputCtrlUp.Anonymous.ki.dwFlags = KEYBD_EVENT_FLAGS.KEYEVENTF_KEYUP;
 
-        // 2. Send inputs in two batches to simulate hold duration
+        // 2. Send inputs
+        // Release modifiers first in a separate batch to ensure state is clean
+        Span<INPUT> inputsRelease = stackalloc INPUT[] { inputShiftUp };
+
         Span<INPUT> inputsDown = stackalloc INPUT[] { inputCtrlDown, inputCDown };
         Span<INPUT> inputsUp = stackalloc INPUT[] { inputCUp, inputCtrlUp };
 
         unsafe
         {
+            // Release modifiers
+            fixed (INPUT* pInputsRelease = inputsRelease)
+            {
+                PInvoke.SendInput((uint)inputsRelease.Length, pInputsRelease, Marshal.SizeOf<INPUT>());
+            }
+
+            // Short delay
+            System.Threading.Thread.Sleep(10);
+
             // Press keys
             fixed (INPUT* pInputsDown = inputsDown)
             {

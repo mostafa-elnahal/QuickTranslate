@@ -61,7 +61,8 @@ public class GoogleTranslator : ITranslator, IDisposable
 
         // 1. Main Translation
         string translation = "";
-        string? transliteration = null;
+        string? transliteration = null;       // Target language transliteration
+        string? sourceTransliteration = null; // Source language transliteration (for pronunciation)
         if (root.TryGetProperty("sentences", out var sentences))
         {
             foreach (var sentence in sentences.EnumerateArray())
@@ -73,6 +74,11 @@ public class GoogleTranslator : ITranslator, IDisposable
                 if (sentence.TryGetProperty("translit", out var translit))
                 {
                     transliteration = translit.GetString();
+                }
+                // Source transliteration (pronunciation of the original text)
+                if (sentence.TryGetProperty("src_translit", out var srcTranslit))
+                {
+                    sourceTransliteration = srcTranslit.GetString();
                 }
             }
         }
@@ -207,7 +213,8 @@ public class GoogleTranslator : ITranslator, IDisposable
             Language.GetLanguage(sourceLangDetected),
             Name,
             dictionaryEntries,
-            transliteration
+            transliteration,
+            sourceTransliteration
         );
     }
 

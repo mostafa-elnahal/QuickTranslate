@@ -29,6 +29,18 @@ public class TranslationModel
     /// </summary>
     public bool IsSourceRtl => RtlLanguages.Contains(SourceLanguage);
 
+    /// <summary>
+    /// Returns true if the original text is a single word (no spaces).
+    /// Used to determine if pronunciation section should be shown.
+    /// </summary>
+    public bool IsSingleWord => !string.IsNullOrWhiteSpace(OriginalText)
+        && !OriginalText.Trim().Contains(' ');
+
+    /// <summary>
+    /// Returns true if phonetics data is available.
+    /// </summary>
+    public bool HasPhonetics => !string.IsNullOrWhiteSpace(Phonetic);
+
 }
 
 public enum DictionaryEntryType

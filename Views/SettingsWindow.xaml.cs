@@ -1,3 +1,4 @@
+using System;
 using System.Windows;
 using System.Windows.Input;
 using QuickTranslate.ViewModels;
@@ -63,6 +64,39 @@ public partial class SettingsWindow : Window
             {
                 vm.Hotkey = dialog.ResultHotkey;
             }
+        }
+    }
+
+    private void EditPronunciationHotkey_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is SettingsViewModel vm)
+        {
+            var dialog = new HotkeyEditorDialog(vm.PronunciationHotkey, "Pronounce word")
+            {
+                Owner = this
+            };
+
+            if (dialog.ShowDialog() == true && dialog.ResultHotkey != null)
+            {
+                vm.PronunciationHotkey = dialog.ResultHotkey;
+            }
+        }
+    }
+
+    private void GeminiApiKeyBox_PasswordChanged(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is SettingsViewModel vm)
+        {
+            vm.GeminiApiKey = GeminiApiKeyBox.Password;
+        }
+    }
+
+    protected override void OnContentRendered(EventArgs e)
+    {
+        base.OnContentRendered(e);
+        if (DataContext is SettingsViewModel vm && !string.IsNullOrEmpty(vm.GeminiApiKey))
+        {
+            GeminiApiKeyBox.Password = vm.GeminiApiKey;
         }
     }
 }

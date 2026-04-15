@@ -4,6 +4,8 @@ using System.Windows;
 using QuickTranslate.Services;
 using QuickTranslate.ViewModels;
 using QuickTranslate.Views;
+using QuickTranslate.Services.Providers;
+using System.Collections.Generic;
 
 namespace QuickTranslate;
 
@@ -12,8 +14,13 @@ namespace QuickTranslate;
 /// </summary>
 public partial class App : Application
 {
-    private PopupWindow? _popupWindow;
-    private PopupViewModel? _viewModel;
+    // Translation popup
+    private TranslationPopup? _translationPopup;
+    private PopupViewModel? _translationViewModel;
+
+    // Pronunciation popup
+    private PronunciationPopup? _pronunciationPopup;
+    private PronunciationViewModel? _pronunciationViewModel;
 
     // Services
     private IClipboardService? _clipboardService;
@@ -22,6 +29,7 @@ public partial class App : Application
     private IWindowPositioningService? _positioningService;
     private IWindowSizingService? _sizingService;
     private ISettingsService? _settingsService;
+    private ITranslationService? _translationService;
 
     public App()
     {
@@ -46,34 +54,50 @@ public partial class App : Application
     {
         // Initialize Services
         _settingsService = new SettingsService();
-        _clipboardService = new ClipboardService();
         _hotkeyService = new HotkeyService();
+        _clipboardService = new ClipboardService();
         _trayIconService = new TrayIconService();
         _positioningService = new WindowPositioningService();
         _sizingService = new WindowSizingService(_settingsService);
+        _translationService = new GTranslateService();
+        IDialogService dialogService = new DialogService();
 
-        // Initialize ViewModel (Composition Root)
-        var translationService = new GTranslateService();
-        _viewModel = new PopupViewModel(translationService, _settingsService!);
+        // Create syllable service for pronunciation
+        ISyllableService syllableService = new SyllableService();
 
-        // Create popup window but don't show it
-        _popupWindow = new PopupWindow(_viewModel, _positioningService, _sizingService);
+        // Register Providers
+        var providers = new List<IPronunciationProvider>
+        {
+            new GooglePronunciationProvider(_translationService, syllableService),
+            new GeminiPronunciationProvider(_translationService, syllableService, _settingsService)
+        };
+
+        IPronunciationService pronunciationService = new PronunciationService(providers, _settingsService);
+
+        // Initialize Translation Popup (Composition Root)
+        _translationViewModel = new PopupViewModel(_translationService, _settingsService, pronunciationService, _clipboardService);
+        _translationPopup = new TranslationPopup(_translationViewModel, _positioningService, _sizingService);
+
+        // Initialize Pronunciation Popup
+        _pronunciationViewModel = new PronunciationViewModel(pronunciationService, _settingsService);
+        _pronunciationPopup = new PronunciationPopup(_pronunciationViewModel, _positioningService, _sizingService);
 
         // Setup system tray icon
         SetupTrayIcon();
 
-        // Register global hotkey
-        RegisterGlobalHotkey();
+        // Register global hotkeys
+        RegisterGlobalHotkeys();
 
         // Listen for setting changes
-        _settingsService!.SettingsChanged += OnSettingsChanged;
+        _settingsService.SettingsChanged += OnSettingsChanged;
     }
 
     private void OnSettingsChanged(object? sender, EventArgs e)
     {
-        if (_settingsService != null && _hotkeyService != null && _popupWindow != null)
+        if (_settingsService != null && _hotkeyService != null && _translationPopup != null)
         {
-            RegisterAndNotify(_settingsService.Settings.Hotkey);
+            RegisterTranslationHotkey(_settingsService.Settings.Hotkey);
+            RegisterPronunciationHotkey(_settingsService.Settings?.PronunciationHotkey ?? "Ctrl+Shift+P");
         }
     }
 
@@ -82,7 +106,12 @@ public partial class App : Application
         // Cleanup
         _hotkeyService?.Dispose();
         _trayIconService?.Dispose();
-        _viewModel?.Dispose();
+        _translationViewModel?.Dispose();
+        _pronunciationViewModel?.Dispose();
+        if (_translationService is IDisposable disposableService)
+        {
+            disposableService.Dispose();
+        }
     }
 
     private void SetupTrayIcon()
@@ -91,10 +120,7 @@ public partial class App : Application
 
         _trayIconService.Initialize();
 
-
-
         _trayIconService.ExitRequested += (s, args) => Shutdown();
-
         _trayIconService.SettingsRequested += (s, args) => OpenSettingsWindow();
     }
 
@@ -102,7 +128,7 @@ public partial class App : Application
 
     private void OpenSettingsWindow()
     {
-        if (_settingsService == null) return;
+        if (_settingsService == null || _translationService == null) return;
 
         // If window is already open, just focus it
         if (_settingsWindow != null)
@@ -115,7 +141,7 @@ public partial class App : Application
             return;
         }
 
-        var viewModel = new SettingsViewModel(_settingsService);
+        var viewModel = new SettingsViewModel(_settingsService, new DialogService(), _translationService);
         _settingsWindow = new SettingsWindow(viewModel);
 
         // Handle closure to clear reference
@@ -124,62 +150,111 @@ public partial class App : Application
         _settingsWindow.Show();
     }
 
-    private const int HOTKEY_ID_TRANSLATE = 1;
+    #region Hotkey Registration
 
-    private void RegisterGlobalHotkey()
+    private const int HOTKEY_ID_TRANSLATE = 1;
+    private const int HOTKEY_ID_PRONUNCIATION = 2;
+
+    private void RegisterGlobalHotkeys()
     {
-        if (_popupWindow == null || _hotkeyService == null) return;
+        if (_hotkeyService == null) return;
 
         _hotkeyService.HotkeyPressed += OnHotkeyPressed;
 
-        // Initial registration
-        if (_settingsService?.Settings.Hotkey != null)
+        // Register Translation hotkey (Ctrl+Q by default)
+        if (_settingsService?.Settings.Hotkey != null && _translationPopup != null)
         {
-            RegisterAndNotify(_settingsService.Settings.Hotkey);
+            RegisterTranslationHotkey(_settingsService.Settings.Hotkey);
+        }
+
+        // Register Pronunciation hotkey from settings
+        if (_pronunciationPopup != null && _settingsService != null)
+        {
+            RegisterPronunciationHotkey(_settingsService.Settings?.PronunciationHotkey ?? "Ctrl+Shift+P");
         }
     }
 
-    private void RegisterAndNotify(string hotkey)
+    private void RegisterTranslationHotkey(string hotkey)
     {
-        if (_hotkeyService == null || _popupWindow == null) return;
+        if (_hotkeyService == null || _translationPopup == null) return;
 
-        bool success = _hotkeyService.Register(HOTKEY_ID_TRANSLATE, hotkey, _popupWindow);
+        bool success = _hotkeyService.Register(HOTKEY_ID_TRANSLATE, hotkey, _translationPopup);
         if (!success)
         {
             MessageBox.Show(
-                $"Failed to register hotkey '{hotkey}'. It may be in use by another application.",
+                $"Failed to register translation hotkey '{hotkey}'. It may be in use by another application.",
                 "QuickTranslate",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }
     }
+
+    private void RegisterPronunciationHotkey(string hotkey)
+    {
+        if (_hotkeyService == null || _pronunciationPopup == null) return;
+
+        bool success = _hotkeyService.Register(HOTKEY_ID_PRONUNCIATION, hotkey, _pronunciationPopup);
+        if (!success)
+        {
+            MessageBox.Show(
+                $"Failed to register pronunciation hotkey '{hotkey}'. It may be in use by another application.",
+                "QuickTranslate",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+    }
+
+    #endregion
+
     /// <summary>
     /// Handles the hotkey press event
     /// </summary>
     private async void OnHotkeyPressed(object? sender, int hotkeyId)
     {
-        if (hotkeyId != HOTKEY_ID_TRANSLATE) return;
-
-        // Instant feedback: Hide window immediately if open
-        _viewModel?.HideWindow();
-
         if (_clipboardService == null) return;
 
         // Run capture on STA thread (required for clipboard/SendKeys)
         string capturedText = string.Empty;
 
-        await Task.Run(() =>
+        try
         {
+            var tcs = new TaskCompletionSource<string>();
             var thread = new System.Threading.Thread(() =>
             {
-                capturedText = _clipboardService.CaptureSelection();
+                try { tcs.SetResult(_clipboardService.CaptureSelection()); }
+                catch (Exception ex) { tcs.SetException(ex); }
             });
             thread.SetApartmentState(System.Threading.ApartmentState.STA);
+            thread.IsBackground = true;
             thread.Start();
-            thread.Join();
-        });
+            
+            capturedText = await tcs.Task;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Clipboard capture exception: {ex}");
+            return;
+        }
 
-        // Show window and translate on UI thread
-        _popupWindow?.ShowAndTranslate(capturedText);
+        switch (hotkeyId)
+        {
+            case HOTKEY_ID_TRANSLATE:
+                // Close pronunciation popup if open
+                _pronunciationViewModel?.HideWindow();
+                // Show translation popup
+                _translationPopup?.ShowAndTranslate(capturedText);
+                break;
+
+            case HOTKEY_ID_PRONUNCIATION:
+                // Close translation popup if open
+                _translationViewModel?.HideWindow();
+
+                // Show pronunciation popup only if text is not empty
+                if (!string.IsNullOrWhiteSpace(capturedText))
+                {
+                    _pronunciationPopup?.ShowAndPronounce(capturedText);
+                }
+                break;
+        }
     }
 }

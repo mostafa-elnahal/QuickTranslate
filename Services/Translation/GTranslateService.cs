@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using GTranslate.Translators;
 using QuickTranslate.Models;
+using QuickTranslate.Services.Translators;
 
 namespace QuickTranslate.Services;
 
@@ -40,12 +41,29 @@ public class GTranslateService : ITranslationService, IDisposable
         // Dispose old translator before creating new one
         DisposeCurrentTranslator();
         _currentProviderName = providerName;
-        // Translator will be created lazily on next translate call
+        _currentTranslator = _translatorFactory.Create(providerName);
     }
 
     public string[] GetAvailableProviders() => _translatorFactory.AvailableProviders;
 
-    public async Task<TranslationModel> TranslateAsync(string text, string targetLanguage, string? sourceLanguage = null)
+    public LanguageOption[] GetSupportedLanguages()
+    {
+        // GTranslate exposes all ISO-639-1 languages
+        // We will map its Language dictionary to our LanguageOption
+        var langs = new System.Collections.Generic.List<LanguageOption>
+        {
+            new LanguageOption("Auto-detect", "auto")
+        };
+
+        foreach (var lang in GTranslate.Language.LanguageDictionary.Values)
+        {
+            langs.Add(new LanguageOption(lang.Name, lang.ISO6391));
+        }
+
+        return langs.ToArray();
+    }
+
+    public async Task<TranslationModel> TranslateAsync(string text, string targetLanguage, string? sourceLanguage = null, System.Threading.CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
@@ -62,7 +80,9 @@ public class GTranslateService : ITranslationService, IDisposable
             // Lazy-load the translator using factory
             _currentTranslator ??= _translatorFactory.Create(_currentProviderName);
 
-            var result = await _currentTranslator.TranslateAsync(text, targetLanguage, sourceLanguage);
+            // WaitAsync allows the caller to short-circuit if cancelled, even if the underlying SDK task doesn't support it.
+            var resultTask = _currentTranslator.TranslateAsync(text, targetLanguage, sourceLanguage);
+            var result = await resultTask.WaitAsync(cancellationToken);
 
             var model = new TranslationModel
             {
@@ -78,7 +98,8 @@ public class GTranslateService : ITranslationService, IDisposable
             if (result is GoogleTranslationResult googleResult)
             {
                 model.DictionaryEntries = googleResult.DictionaryEntries;
-                model.Phonetic = googleResult.Transliteration ?? string.Empty;
+                // Use source transliteration (pronunciation of original word)
+                model.Phonetic = googleResult.SourceTransliteration ?? string.Empty;
             }
 
             return model;

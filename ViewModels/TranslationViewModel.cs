@@ -16,8 +16,8 @@ public class TranslationViewModel : ViewModelBase, IDisposable
     private readonly ISettingsService _settingsService;
 
     private TranslationModel? _currentTranslation;
-    private Visibility _windowVisibility = Visibility.Collapsed;
-    private string _targetLanguage = "ar"; // Default to Arabic
+    private bool _isVisible = false;
+    private string _targetLanguage = Constants.Defaults.TargetLanguage; // Default to Arabic
     private bool _isPronunciationMode = false;
 
     /// <summary>
@@ -73,10 +73,10 @@ public class TranslationViewModel : ViewModelBase, IDisposable
         set => SetProperty(ref _currentTranslation, value);
     }
 
-    public Visibility WindowVisibility
+    public bool IsVisible
     {
-        get => _windowVisibility;
-        set => SetProperty(ref _windowVisibility, value);
+        get => _isVisible;
+        set => SetProperty(ref _isVisible, value);
     }
 
     public bool IsPronunciationMode
@@ -130,7 +130,7 @@ public class TranslationViewModel : ViewModelBase, IDisposable
             // Don't show window yet to avoid flicker
             if (!isReTranslation)
             {
-                WindowVisibility = Visibility.Collapsed;
+                IsVisible = false;
                 CurrentTranslation = null;
                 IsPronunciationMode = isPronunciation;
             }
@@ -205,7 +205,7 @@ public class TranslationViewModel : ViewModelBase, IDisposable
     {
         // Increment generation to invalidate any in-flight translation callbacks
         _translationGeneration++;
-        WindowVisibility = Visibility.Collapsed;
+        IsVisible = false;
         CurrentTranslation = null;
     }
 

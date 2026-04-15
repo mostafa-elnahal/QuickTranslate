@@ -1,7 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
-using System.Windows;
+using System.Windows.Input;
 using QuickTranslate.Services;
 using QuickTranslate.Models;
 
@@ -14,10 +14,31 @@ public class PopupViewModel : ViewModelBase, IDisposable
 {
     private readonly ITranslationService _translationService;
     private readonly ISettingsService _settingsService;
+    private readonly IPronunciationService _pronunciationService;
 
     private TranslationModel? _currentTranslation;
-    private Visibility _windowVisibility = Visibility.Collapsed;
-    private string _targetLanguage = "ar"; // Default to Arabic
+    private bool _isVisible = false;
+    private string _targetLanguage = Constants.Defaults.TargetLanguage; // Default to Arabic
+
+    public PopupHeaderViewModel Header { get; }
+
+    // Pronunciation State
+    private bool _isPronunciationLoading;
+    private Uri? _pronunciationAudioUri;
+
+    public bool IsPronunciationLoading
+    {
+        get => _isPronunciationLoading;
+        set => SetProperty(ref _isPronunciationLoading, value);
+    }
+
+    public Uri? PronunciationAudioUri
+    {
+        get => _pronunciationAudioUri;
+        set => SetProperty(ref _pronunciationAudioUri, value);
+    }
+
+    public ICommand PlayPronunciationCommand { get; }
 
     /// <summary>
     /// Generation counter to track translation sessions.
@@ -30,14 +51,61 @@ public class PopupViewModel : ViewModelBase, IDisposable
     /// </summary>
     public int TranslationGeneration => _translationGeneration;
 
-    public PopupViewModel(ITranslationService translationService, ISettingsService settingsService)
+    private System.Threading.CancellationTokenSource? _translationCts;
+
+    public PopupViewModel(
+        ITranslationService translationService,
+        ISettingsService settingsService,
+        IPronunciationService pronunciationService,
+        IClipboardService clipboardService)
     {
         _translationService = translationService;
         _settingsService = settingsService;
+        _pronunciationService = pronunciationService;
+
+        Header = new PopupHeaderViewModel(clipboardService);
 
         _settingsService.SettingsChanged += OnSettingsChanged;
 
+        PlayPronunciationCommand = new RelayCommand(PlayPronunciationAsync);
+
         InitializeProviders();
+    }
+
+    private async void PlayPronunciationAsync()
+    {
+        if (CurrentTranslation == null || !CurrentTranslation.IsSingleWord) return;
+
+        // Prevent concurrent requests
+        if (IsPronunciationLoading) return;
+
+        IsPronunciationLoading = true;
+        PronunciationAudioUri = null;
+
+        try
+        {
+            var text = CurrentTranslation.OriginalText.Trim();
+            // Language code inference (simple fallback using helper if available, or just use what we have)
+            // Ideally we pass the full language name and let service/provider handle mapping via Helper
+            var langName = CurrentTranslation.SourceLanguage;
+            var langCode = QuickTranslate.Helpers.LanguageHelper.MapToIso6391(langName);
+
+            // Fetch audio URI from the configured provider (Gemini/Google) via Service
+            var result = await _pronunciationService.GetAudioUriAsync(text, langCode, false);
+
+            if (result.IsSuccess && result.Data != null)
+            {
+                PronunciationAudioUri = result.Data;
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Pronunciation Play Area Error: {ex.Message}");
+        }
+        finally
+        {
+            IsPronunciationLoading = false;
+        }
     }
 
     private void OnSettingsChanged(object? sender, EventArgs e)
@@ -50,6 +118,7 @@ public class PopupViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(ChevronHeight));
         OnPropertyChanged(nameof(ChevronWidth));
         OnPropertyChanged(nameof(ChevronStrokeThickness));
+        OnPropertyChanged(nameof(ShowPronunciation));
     }
 
     private void InitializeProviders()
@@ -69,13 +138,17 @@ public class PopupViewModel : ViewModelBase, IDisposable
     public TranslationModel? CurrentTranslation
     {
         get => _currentTranslation;
-        set => SetProperty(ref _currentTranslation, value);
+        set 
+        {
+            SetProperty(ref _currentTranslation, value);
+            Header.CurrentTranslation = value;
+        }
     }
 
-    public Visibility WindowVisibility
+    public bool IsVisible
     {
-        get => _windowVisibility;
-        set => SetProperty(ref _windowVisibility, value);
+        get => _isVisible;
+        set => SetProperty(ref _isVisible, value);
     }
 
     public double TranslationFontSize => _settingsService.Settings.FontSize;
@@ -83,6 +156,11 @@ public class PopupViewModel : ViewModelBase, IDisposable
     public string TranslationFontFamily => _settingsService.Settings.FontFamily;
 
     public string TranslationFontWeight => _settingsService.Settings.FontWeight;
+
+    /// <summary>
+    /// Whether to show pronunciation section for single-word translations.
+    /// </summary>
+    public bool ShowPronunciation => _settingsService.Settings.ShowPronunciation;
 
     // Proportional font sizes for dictionary entries
     public double DictionaryTermFontSize => TranslationFontSize * 0.80; // ~12px when main is 18px
@@ -105,6 +183,10 @@ public class PopupViewModel : ViewModelBase, IDisposable
 
     public ObservableCollection<ProviderInfo> Providers { get; } = new();
 
+    // Pronunciation properties for single-word translation
+    public double PronunciationFontSize => TranslationFontSize * 1.5; // Larger for emphasis
+    public double PhoneticsFontSize => TranslationFontSize * 0.85;
+
     #endregion
 
     #region Public Methods
@@ -116,13 +198,18 @@ public class PopupViewModel : ViewModelBase, IDisposable
     {
         try
         {
+            // Cancel any ongoing translation
+            _translationCts?.Cancel();
+            _translationCts?.Dispose();
+            _translationCts = new System.Threading.CancellationTokenSource();
+
             // Increment generation to invalidate any stale callbacks from previous translations
             _translationGeneration++;
 
             // Don't show window yet to avoid flicker
             if (!isReTranslation)
             {
-                WindowVisibility = Visibility.Collapsed;
+                IsVisible = false;
                 CurrentTranslation = null;
             }
 
@@ -138,9 +225,13 @@ public class PopupViewModel : ViewModelBase, IDisposable
             }
 
             // Perform real translation
-            CurrentTranslation = await _translationService.TranslateAsync(sourceText, _targetLanguage);
+            CurrentTranslation = await _translationService.TranslateAsync(sourceText, _targetLanguage, null, _translationCts.Token);
 
             // Note: View will handle making window visible after layout update
+        }
+        catch (TaskCanceledException)
+        {
+            // Ignore cancellation exceptions transparently
         }
         catch (Exception ex)
         {
@@ -184,9 +275,12 @@ public class PopupViewModel : ViewModelBase, IDisposable
     /// </summary>
     public void HideWindow()
     {
+        // Cancel in-flight requests immediately to free resources
+        _translationCts?.Cancel();
+
         // Increment generation to invalidate any in-flight translation callbacks
         _translationGeneration++;
-        WindowVisibility = Visibility.Collapsed;
+        IsVisible = false;
         CurrentTranslation = null;
     }
 
@@ -196,6 +290,9 @@ public class PopupViewModel : ViewModelBase, IDisposable
 
     public void Dispose()
     {
+        _translationCts?.Cancel();
+        _translationCts?.Dispose();
+
         if (_translationService is IDisposable disposable)
         {
             disposable.Dispose();

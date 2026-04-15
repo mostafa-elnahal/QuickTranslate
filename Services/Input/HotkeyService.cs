@@ -40,7 +40,7 @@ public class HotkeyService : IHotkeyService
 
         if (string.IsNullOrWhiteSpace(hotkeyString)) return false;
 
-        (HOT_KEY_MODIFIERS fsModifiers, uint vk) = Helpers.HotkeyHelper.ParseHotkey(hotkeyString);
+        (HOT_KEY_MODIFIERS fsModifiers, uint vk) = QuickTranslate.Helpers.HotkeyHelper.ParseHotkey(hotkeyString);
         if (vk == 0) return false; // invalid key
 
         bool success = PInvoke.RegisterHotKey(

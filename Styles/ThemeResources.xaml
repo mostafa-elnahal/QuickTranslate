@@ -20,6 +20,9 @@
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryColor}"/>
     <SolidColorBrush x:Key="ErrorBrush" Color="{StaticResource ErrorColor}"/>
     <SolidColorBrush x:Key="BadgeForegroundBrush" Color="{StaticResource AccentColor}"/>
+    
+    <Color x:Key="ButtonHoverColor">#3E3E42</Color>
+    <SolidColorBrush x:Key="ButtonHoverBrush" Color="{StaticResource ButtonHoverColor}"/>
 
     <!-- Typography -->
     <sys:Double x:Key="FontSizeSmall">11</sys:Double>

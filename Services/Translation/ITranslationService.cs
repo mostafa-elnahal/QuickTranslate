@@ -15,8 +15,9 @@ public interface ITranslationService
     /// <param name="text">The text to translate.</param>
     /// <param name="targetLanguage">The target language code (e.g., "ar", "en").</param>
     /// <param name="sourceLanguage">Optional source language code. If null, auto-detect.</param>
+    /// <param name="cancellationToken">Cancellation token to abort the request.</param>
     /// <returns>A TranslationModel with the result.</returns>
-    Task<TranslationModel> TranslateAsync(string text, string targetLanguage, string? sourceLanguage = null);
+    Task<TranslationModel> TranslateAsync(string text, string targetLanguage, string? sourceLanguage = null, System.Threading.CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets the name of the current translation provider.
@@ -33,4 +34,9 @@ public interface ITranslationService
     /// Returns a list of available provider names.
     /// </summary>
     string[] GetAvailableProviders();
+
+    /// <summary>
+    /// Returns a list of supported languages for the UI.
+    /// </summary>
+    LanguageOption[] GetSupportedLanguages();
 }

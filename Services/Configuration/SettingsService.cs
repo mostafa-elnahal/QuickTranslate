@@ -43,6 +43,20 @@ public class SettingsService : ISettingsService
                 if (loaded != null)
                 {
                     _settings = loaded;
+
+                    // Decrypt API Key
+                    if (!string.IsNullOrEmpty(_settings.EncryptedGeminiApiKey))
+                    {
+                        try
+                        {
+                            _settings.GeminiApiKey = Unprotect(_settings.EncryptedGeminiApiKey);
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Failed to decrypt API key: {ex.Message}");
+                            _settings.GeminiApiKey = string.Empty;
+                        }
+                    }
                 }
             }
         }
@@ -58,6 +72,16 @@ public class SettingsService : ISettingsService
     {
         try
         {
+            // Encrypt API Key before saving
+            if (!string.IsNullOrEmpty(_settings.GeminiApiKey))
+            {
+                _settings.EncryptedGeminiApiKey = Protect(_settings.GeminiApiKey);
+            }
+            else
+            {
+                _settings.EncryptedGeminiApiKey = string.Empty;
+            }
+
             var options = new JsonSerializerOptions
             {
                 WriteIndented = true
@@ -71,5 +95,23 @@ public class SettingsService : ISettingsService
         {
             System.Diagnostics.Debug.WriteLine($"Failed to save settings: {ex.Message}");
         }
+    }
+
+    private static string Protect(string plainText)
+    {
+        if (string.IsNullOrEmpty(plainText)) return string.Empty;
+        var bytes = System.Text.Encoding.UTF8.GetBytes(plainText);
+        var encrypted = System.Security.Cryptography.ProtectedData.Protect(
+            bytes, null, System.Security.Cryptography.DataProtectionScope.CurrentUser);
+        return Convert.ToBase64String(encrypted);
+    }
+
+    private static string Unprotect(string encryptedText)
+    {
+        if (string.IsNullOrEmpty(encryptedText)) return string.Empty;
+        var bytes = Convert.FromBase64String(encryptedText);
+        var decrypted = System.Security.Cryptography.ProtectedData.Unprotect(
+            bytes, null, System.Security.Cryptography.DataProtectionScope.CurrentUser);
+        return System.Text.Encoding.UTF8.GetString(decrypted);
     }
 }

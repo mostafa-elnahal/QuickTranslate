@@ -1,27 +1,26 @@
 using System;
 using System.Windows;
 using System.Windows.Input;
-using Windows.Win32;
-using Windows.Win32.UI.WindowsAndMessaging;
-using Windows.Win32.Foundation;
-using System.Windows.Threading;
 using QuickTranslate.Services;
 using QuickTranslate.ViewModels;
 using QuickTranslate.Models;
+using Windows.Win32;
+using Windows.Win32.UI.WindowsAndMessaging;
+using Windows.Win32.Foundation;
 
 namespace QuickTranslate.Views;
 
 /// <summary>
-/// Interaction logic for PopupWindow.xaml
+/// Translation popup window - displays translated text and dictionary entries.
 /// </summary>
-public partial class PopupWindow : Window
+public partial class TranslationPopup : Window
 {
     private readonly PopupViewModel _viewModel;
     private readonly IWindowPositioningService _positioningService;
     private readonly IWindowSizingService _sizingService;
 
     // Default constructor for XAML designer support (optional/fake)
-    public PopupWindow()
+    public TranslationPopup()
     {
         InitializeComponent();
         _viewModel = null!;
@@ -29,7 +28,7 @@ public partial class PopupWindow : Window
         _sizingService = null!;
     }
 
-    public PopupWindow(PopupViewModel viewModel, IWindowPositioningService positioningService, IWindowSizingService sizingService)
+    public TranslationPopup(PopupViewModel viewModel, IWindowPositioningService positioningService, IWindowSizingService sizingService)
     {
         InitializeComponent();
 
@@ -37,9 +36,27 @@ public partial class PopupWindow : Window
         _positioningService = positioningService;
         _sizingService = sizingService;
         DataContext = _viewModel;
+
+        // Subscribe to property changes to detect when audio URI is ready
+        _viewModel.PropertyChanged += ViewModel_PropertyChanged;
     }
 
-
+    private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(_viewModel.PronunciationAudioUri) && _viewModel.PronunciationAudioUri != null)
+        {
+            // Audio URI is now set, trigger playback
+            try
+            {
+                PronunciationAudioPlayer.Source = _viewModel.PronunciationAudioUri;
+                PronunciationAudioPlayer.Play();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Translation Popup audio error: {ex.Message}");
+            }
+        }
+    }
 
     /// <summary>
     /// Shows the window near the mouse cursor and starts translation
@@ -57,7 +74,7 @@ public partial class PopupWindow : Window
         // 3. Prepare for sizing: Make visible but transparent
         // This forces WPF to calculate the size based on the new content
         Opacity = 0;
-        _viewModel.WindowVisibility = Visibility.Visible;
+        _viewModel.IsVisible = true;
 
         // 4. Force Layout Update (synchronous since we're already on UI thread)
         // Safety Check: Reset WindowState if it somehow got Maximized (fixes crash with ShowActivated=False)
@@ -73,7 +90,7 @@ public partial class PopupWindow : Window
         if (_viewModel.TranslationGeneration != myGeneration)
         {
             Opacity = 0;
-            _viewModel.WindowVisibility = Visibility.Collapsed;
+            _viewModel.IsVisible = false;
             return;
         }
 
@@ -98,9 +115,6 @@ public partial class PopupWindow : Window
         PInvoke.SetWindowLong(new HWND(hwnd), WINDOW_LONG_PTR_INDEX.GWL_STYLE, style & ~(int)WINDOW_STYLE.WS_MAXIMIZEBOX);
     }
 
-    /// <summary>
-    /// Hides window when clicked
-    /// </summary>
     private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ChangedButton == MouseButton.Left)
@@ -117,7 +131,6 @@ public partial class PopupWindow : Window
             _sizingService.SaveSize(this);
         }
     }
-
 
     private void CloseButton_Click(object sender, RoutedEventArgs e)
     {
@@ -168,4 +181,26 @@ public partial class PopupWindow : Window
             }
         }
     }
+
+    #region Pronunciation Audio/Animation
+
+
+
+    private void PronunciationAudioPlayer_MediaOpened(object sender, RoutedEventArgs e)
+    {
+        // Auto-play when loaded via binding
+        PronunciationAudioPlayer.Play();
+    }
+
+    private void PronunciationAudioPlayer_MediaEnded(object sender, RoutedEventArgs e)
+    {
+        // No-op
+    }
+
+    private void PronunciationAudioPlayer_MediaFailed(object sender, ExceptionRoutedEventArgs e)
+    {
+        System.Diagnostics.Debug.WriteLine($"Pronunciation audio failed: {e.ErrorException?.Message}");
+    }
+
+    #endregion
 }

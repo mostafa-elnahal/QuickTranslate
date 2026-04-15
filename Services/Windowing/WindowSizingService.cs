@@ -33,16 +33,18 @@ public class WindowSizingService : IWindowSizingService
         _settingsService = settingsService;
     }
 
-    public void ApplySize(Window window)
+    public void ApplySize(Window window, WindowType type = WindowType.Translation)
     {
         var settings = _settingsService.Settings;
+        double? savedWidth = type == WindowType.Translation ? settings.SavedWindowWidth : settings.SavedPronunciationWindowWidth;
+        double? savedHeight = type == WindowType.Translation ? settings.SavedWindowHeight : settings.SavedPronunciationWindowHeight;
 
-        if (settings.SavedWindowWidth.HasValue && settings.SavedWindowHeight.HasValue)
+        if (savedWidth.HasValue && savedHeight.HasValue)
         {
             // Subsequent launch: Restore saved size
             window.SizeToContent = SizeToContent.Manual;
-            window.Width = settings.SavedWindowWidth.Value;
-            window.Height = settings.SavedWindowHeight.Value;
+            window.Width = savedWidth.Value;
+            window.Height = savedHeight.Value;
         }
         else
         {
@@ -68,14 +70,22 @@ public class WindowSizingService : IWindowSizingService
         }
     }
 
-    public void SaveSize(Window window)
+    public void SaveSize(Window window, WindowType type = WindowType.Translation)
     {
         // Only save if window has a reasonable size
         if (window.ActualWidth > 0 && window.ActualHeight > 0)
         {
             var settings = _settingsService.Settings;
-            settings.SavedWindowWidth = window.ActualWidth;
-            settings.SavedWindowHeight = window.ActualHeight;
+            if (type == WindowType.Translation)
+            {
+                settings.SavedWindowWidth = window.ActualWidth;
+                settings.SavedWindowHeight = window.ActualHeight;
+            }
+            else
+            {
+                settings.SavedPronunciationWindowWidth = window.ActualWidth;
+                settings.SavedPronunciationWindowHeight = window.ActualHeight;
+            }
             _settingsService.Save();
         }
     }

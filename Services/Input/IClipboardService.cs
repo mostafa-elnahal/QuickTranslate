@@ -8,4 +8,9 @@ public interface IClipboardService
     /// </summary>
     /// <returns>The captured text, or empty string if failed.</returns>
     string CaptureSelection();
+
+    /// <summary>
+    /// Safely sets text to the clipboard.
+    /// </summary>
+    void SetText(string text);
 }

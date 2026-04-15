@@ -9,7 +9,7 @@
 *.sln.docstates
 
 # local docs
-docs/
+old-docs/
 
 # debugging files
 crash_log.txt   

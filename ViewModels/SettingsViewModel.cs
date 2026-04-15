@@ -12,6 +12,8 @@ namespace QuickTranslate.ViewModels;
 public class SettingsViewModel : ViewModelBase
 {
     private readonly ISettingsService _settingsService;
+    private readonly IDialogService _dialogService;
+    private readonly ITranslationService _translationService;
     private string _selectedCategory = "Basics";
 
     // Settings properties (bound to UI)
@@ -21,13 +23,26 @@ public class SettingsViewModel : ViewModelBase
     private string _defaultTargetLanguage = "en";
     private string _defaultProvider = "Google";
     private string _hotkey = "Ctrl+Q";
+    private string _pronunciationHotkey = "Ctrl+Shift+P";
     private double _fontSize = 18;
     private string _fontFamily = "Segoe UI";
     private string _fontWeight = "Medium";
+    private bool _showPronunciation = true;
+    private string _pronunciationProvider = "Google";
+    private string _geminiApiKey = string.Empty;
     private bool _isDirty = false;
-    public SettingsViewModel(ISettingsService settingsService)
+
+    private static readonly ObservableCollection<string> StaticCategories = new() { "Basics", "Hotkeys", "Languages", "Appearance", "Pronunciation", "About" };
+    private static readonly ObservableCollection<string> StaticProviders = new() { "Google", "Bing", "Yandex" };
+    private static readonly ObservableCollection<string> StaticFontFamilies = new() { "Segoe UI", "Calibri", "Arial", "Consolas", "Georgia" };
+    private static readonly ObservableCollection<string> StaticFontWeights = new() { "Light", "Normal", "Medium", "SemiBold", "Bold" };
+    private static readonly ObservableCollection<string> StaticPronunciationProviders = new() { Constants.PronunciationProviders.Google, Constants.PronunciationProviders.Gemini };
+
+    public SettingsViewModel(ISettingsService settingsService, IDialogService dialogService, ITranslationService translationService)
     {
         _settingsService = settingsService;
+        _dialogService = dialogService;
+        _translationService = translationService;
 
         // Load current settings into properties
         LoadFromSettings();
@@ -36,60 +51,15 @@ public class SettingsViewModel : ViewModelBase
         SaveCommand = new RelayCommand(Save, () => IsDirty);
         CloseCommand = new RelayCommand(Close);
 
-        // Initialize categories
-        Categories = new ObservableCollection<string>
-        {
-            "Basics",
-            "Hotkeys",
-            "Languages",
-            "Appearance",
-            "About"
-        };
+        // Initialized from static properties to save allocations
+        Categories = StaticCategories;
+        AvailableProviders = StaticProviders;
+        AvailablePronunciationProviders = StaticPronunciationProviders;
+        AvailableFontFamilies = StaticFontFamilies;
+        AvailableFontWeights = StaticFontWeights;
 
-        // Available languages for dropdowns
-        AvailableLanguages = new ObservableCollection<LanguageOption>
-        {
-            new("Auto-detect", "auto"),
-            new("English", "en"),
-            new("Arabic", "ar"),
-            new("Spanish", "es"),
-            new("French", "fr"),
-            new("German", "de"),
-            new("Italian", "it"),
-            new("Portuguese", "pt"),
-            new("Russian", "ru"),
-            new("Chinese", "zh"),
-            new("Japanese", "ja"),
-            new("Korean", "ko")
-        };
-
-        // Available providers
-        AvailableProviders = new ObservableCollection<string>
-        {
-            "Google",
-            "Bing",
-            "Yandex"
-        };
-
-        // Available font families
-        AvailableFontFamilies = new ObservableCollection<string>
-        {
-            "Segoe UI",
-            "Calibri",
-            "Arial",
-            "Consolas",
-            "Georgia"
-        };
-
-        // Available font weights
-        AvailableFontWeights = new ObservableCollection<string>
-        {
-            "Light",
-            "Normal",
-            "Medium",
-            "SemiBold",
-            "Bold"
-        };
+        // Available languages dynamically loaded from provider
+        AvailableLanguages = new ObservableCollection<LanguageOption>(_translationService.GetSupportedLanguages());
     }
 
     #region Properties
@@ -99,6 +69,7 @@ public class SettingsViewModel : ViewModelBase
     public ObservableCollection<string> AvailableProviders { get; }
     public ObservableCollection<string> AvailableFontFamilies { get; }
     public ObservableCollection<string> AvailableFontWeights { get; }
+    public ObservableCollection<string> AvailablePronunciationProviders { get; }
 
     public string SelectedCategory
     {
@@ -142,6 +113,12 @@ public class SettingsViewModel : ViewModelBase
         set { if (SetProperty(ref _hotkey, value)) IsDirty = true; }
     }
 
+    public string PronunciationHotkey
+    {
+        get => _pronunciationHotkey;
+        set { if (SetProperty(ref _pronunciationHotkey, value)) IsDirty = true; }
+    }
+
     public double FontSize
     {
         get => _fontSize;
@@ -159,6 +136,33 @@ public class SettingsViewModel : ViewModelBase
         get => _fontWeight;
         set { if (SetProperty(ref _fontWeight, value)) IsDirty = true; }
     }
+
+    public bool ShowPronunciation
+    {
+        get => _showPronunciation;
+        set { if (SetProperty(ref _showPronunciation, value)) IsDirty = true; }
+    }
+
+    public string PronunciationProvider
+    {
+        get => _pronunciationProvider;
+        set
+        {
+            if (SetProperty(ref _pronunciationProvider, value))
+            {
+                IsDirty = true;
+                OnPropertyChanged(nameof(IsApiKeyInputEnabled));
+            }
+        }
+    }
+
+    public string GeminiApiKey
+    {
+        get => _geminiApiKey;
+        set { if (SetProperty(ref _geminiApiKey, value)) IsDirty = true; }
+    }
+
+    public bool IsApiKeyInputEnabled => PronunciationProvider == "Gemini";
 
     public bool IsDirty
     {
@@ -180,6 +184,15 @@ public class SettingsViewModel : ViewModelBase
 
     private void Save()
     {
+        // Validation
+        if (PronunciationProvider == "Gemini" && string.IsNullOrWhiteSpace(GeminiApiKey))
+        {
+            _dialogService.ShowWarning(
+                "Gemini API Key is required when Gemini is selected as the pronunciation provider.",
+                "Missing API Key");
+            return;
+        }
+
         // Apply settings
         _settingsService.Settings.StartWithWindows = StartWithWindows;
         _settingsService.Settings.WindowOpacity = WindowOpacity;
@@ -187,9 +200,13 @@ public class SettingsViewModel : ViewModelBase
         _settingsService.Settings.DefaultTargetLanguage = DefaultTargetLanguage;
         _settingsService.Settings.DefaultProvider = DefaultProvider;
         _settingsService.Settings.Hotkey = Hotkey;
+        _settingsService.Settings.PronunciationHotkey = PronunciationHotkey;
         _settingsService.Settings.FontSize = FontSize;
         _settingsService.Settings.FontFamily = FontFamily;
         _settingsService.Settings.FontWeight = FontWeight;
+        _settingsService.Settings.ShowPronunciation = ShowPronunciation;
+        _settingsService.Settings.PronunciationProvider = PronunciationProvider;
+        _settingsService.Settings.GeminiApiKey = GeminiApiKey;
 
         _settingsService.Save();
         IsDirty = false;
@@ -212,16 +229,15 @@ public class SettingsViewModel : ViewModelBase
         _defaultTargetLanguage = settings.DefaultTargetLanguage;
         _defaultProvider = settings.DefaultProvider;
         _hotkey = settings.Hotkey;
+        _pronunciationHotkey = settings.PronunciationHotkey;
         _fontSize = settings.FontSize;
         _fontFamily = settings.FontFamily;
         _fontWeight = settings.FontWeight;
+        _showPronunciation = settings.ShowPronunciation;
+        _pronunciationProvider = settings.PronunciationProvider;
+        _geminiApiKey = settings.GeminiApiKey;
     }
 }
-
-/// <summary>
-/// Represents a language option for dropdowns.
-/// </summary>
-public record LanguageOption(string DisplayName, string Code);
 
 /// <summary>
 /// Simple relay command implementation.

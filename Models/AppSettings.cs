@@ -31,9 +31,14 @@ public class AppSettings
     public string DefaultProvider { get; set; } = "Google";
 
     /// <summary>
-    /// The hotkey combination string (e.g., "Ctrl+Q").
+    /// The hotkey combination string for translation (e.g., "Ctrl+Q").
     /// </summary>
     public string Hotkey { get; set; } = "Ctrl+Q";
+
+    /// <summary>
+    /// The hotkey combination string for pronunciation practice (e.g., "Ctrl+Shift+P").
+    /// </summary>
+    public string PronunciationHotkey { get; set; } = "Ctrl+Shift+P";
 
     /// <summary>
     /// Saved window width. Null = first launch (use default).
@@ -44,6 +49,32 @@ public class AppSettings
     /// Saved window height. Null = first launch (use SizeToContent with MaxHeight).
     /// </summary>
     public double? SavedWindowHeight { get; set; } = null;
+
+    /// <summary>
+    /// Saved pronunciation window width. Null = first launch (use default).
+    /// </summary>
+    public double? SavedPronunciationWindowWidth { get; set; } = null;
+
+    /// <summary>
+    /// Saved pronunciation window height. Null = first launch (use SizeToContent with MaxHeight).
+    /// </summary>
+    public double? SavedPronunciationWindowHeight { get; set; } = null;
+
+    /// <summary>
+    /// Selected pronunciation provider (e.g., "Google", "Gemini").
+    /// </summary>
+    public string PronunciationProvider { get; set; } = "Google";
+
+    /// <summary>
+    /// API Key for Gemini pronunciation provider (in-memory only).
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string GeminiApiKey { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Encrypted API Key for storage.
+    /// </summary>
+    public string EncryptedGeminiApiKey { get; set; } = string.Empty;
 
     /// <summary>
     /// Font size for the main translation text.
@@ -59,4 +90,9 @@ public class AppSettings
     /// Font weight for the main translation text.
     /// </summary>
     public string FontWeight { get; set; } = "Medium";
+
+    /// <summary>
+    /// Show pronunciation section for single-word translations.
+    /// </summary>
+    public bool ShowPronunciation { get; set; } = true;
 }

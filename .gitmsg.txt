@@ -1,0 +1,8 @@
+Refactor: comprehensive MVP architectural cleanup and streaming fix
+
+- Reorganized project structure: moved services into domain-specific folders (Translation, Audio, Windowing, etc.)
+- Fixed critical chunking logic bug in TextChunker.cs to properly accumulate streaming batches
+- Eliminated tight WPF View coupling by replacing all ViewModel `Visibility` properties with standard UI-agnostic `bool IsVisible` properties
+- Consolidated settings/constants to static fields to lower runtime allocations
+- Resolved several build warnings in App.xaml.cs and LanguageHelper mapping issues
+- Added Antigravity C# WPF code review skill

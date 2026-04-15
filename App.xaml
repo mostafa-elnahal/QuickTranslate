@@ -12,6 +12,10 @@
                 <ResourceDictionary Source="Styles/ControlStyles.xaml"/>
             </ResourceDictionary.MergedDictionaries>
             <converters:CategoryToVisibilityConverter x:Key="CategoryToVisibility"/>
+            <converters:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
+            <converters:BoolToVisibilityConverter x:Key="InverseBoolToVisibility"/>
+            <converters:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
+            <converters:InverseBoolConverter x:Key="InverseBoolConverter"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

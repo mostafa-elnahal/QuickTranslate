@@ -103,7 +103,11 @@
                 </Border>
 
                 <!-- Right Content Area -->
-                <Grid Grid.Column="1" Margin="12,12,12,0">
+                <ScrollViewer Grid.Column="1" 
+                              VerticalScrollBarVisibility="Auto" 
+                              HorizontalScrollBarVisibility="Disabled"
+                              Padding="0">
+                    <Grid Margin="12,12,12,0">
                     
                     <!-- Basics Section -->
                     <StackPanel Visibility="{Binding SelectedCategory, Converter={StaticResource CategoryToVisibility}, ConverterParameter=Basics}">
@@ -146,6 +150,7 @@
                                 </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="30"/>
+                                    <RowDefinition Height="30"/>
                                 </Grid.RowDefinitions>
 
                                 <!-- Action Name -->
@@ -158,6 +163,29 @@
                                 <Button Grid.Row="0" Grid.Column="1" 
                                         Content="{Binding Hotkey}"
                                         Click="EditHotkey_Click"
+                                        MinWidth="80"
+                                        Padding="8,4"
+                                        HorizontalContentAlignment="Center"
+                                        ToolTip="Click to change hotkey">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource WindowHeaderButtonStyle}">
+                                            <Setter Property="Background" Value="{StaticResource SurfaceBrush}"/>
+                                            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+                                            <Setter Property="BorderThickness" Value="1"/>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+
+                                <!-- Pronunciation Action -->
+                                <TextBlock Grid.Row="1" Grid.Column="0" 
+                                           Text="Pronounce word" 
+                                           VerticalAlignment="Center" 
+                                           Foreground="{StaticResource TextPrimaryBrush}"/>
+
+                                <!-- Pronunciation Hotkey Button -->
+                                <Button Grid.Row="1" Grid.Column="1" 
+                                        Content="{Binding PronunciationHotkey}"
+                                        Click="EditPronunciationHotkey_Click"
                                         MinWidth="80"
                                         Padding="8,4"
                                         HorizontalContentAlignment="Center"
@@ -290,6 +318,57 @@
                         </GroupBox>
                     </StackPanel>
 
+                    <!-- Pronunciation Section -->
+                    <StackPanel Visibility="{Binding SelectedCategory, Converter={StaticResource CategoryToVisibility}, ConverterParameter=Pronunciation}">
+                         <GroupBox Header="Provider Settings" Style="{StaticResource SettingsGroupBoxStyle}">
+                            <Grid Margin="12,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="140"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="30"/>
+                                    <RowDefinition Height="30"/>
+                                </Grid.RowDefinitions>
+                                
+                                <TextBlock Grid.Row="0" Text="Provider:" VerticalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <ComboBox Grid.Row="0" Grid.Column="1" 
+                                          ItemsSource="{Binding AvailablePronunciationProviders}"
+                                          SelectedItem="{Binding PronunciationProvider}"
+                                          Style="{StaticResource SettingsComboBoxStyle}"
+                                          VerticalAlignment="Center"/>
+
+                                <TextBlock Grid.Row="1" Text="Gemini API Key:" 
+                                           VerticalAlignment="Center" 
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           IsEnabled="{Binding IsApiKeyInputEnabled}"/>
+                                <PasswordBox Grid.Row="1" Grid.Column="1" 
+                                             x:Name="GeminiApiKeyBox"
+                                             PasswordChar="•"
+                                             VerticalAlignment="Center"
+                                             VerticalContentAlignment="Center"
+                                             Height="26"
+                                             PasswordChanged="GeminiApiKeyBox_PasswordChanged"
+                                             ToolTip="Required for Gemini provider"
+                                             IsEnabled="{Binding IsApiKeyInputEnabled}"/>
+                            </Grid>
+                        </GroupBox>
+
+                        <GroupBox Header="Single Word Lookup" Style="{StaticResource SettingsGroupBoxStyle}">
+                            <StackPanel Margin="12,4">
+                                <CheckBox Content="Show pronunciation" 
+                                          IsChecked="{Binding ShowPronunciation}"
+                                          Style="{StaticResource SettingsCheckBoxStyle}"
+                                          Margin="0,4"/>
+                                <TextBlock Text="Show phonetics and speaker button in the main translation popup for single words."
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           FontSize="11"
+                                           TextWrapping="Wrap"
+                                           Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+
                     <!-- About Section -->
                     <StackPanel Visibility="{Binding SelectedCategory, Converter={StaticResource CategoryToVisibility}, ConverterParameter=About}">
                          <GroupBox Header="About" Style="{StaticResource SettingsGroupBoxStyle}">
@@ -303,7 +382,8 @@
                             </StackPanel>
                         </GroupBox>
                     </StackPanel>
-                </Grid>
+                    </Grid>
+                </ScrollViewer>
             </Grid>
 
             <!-- Footer Buttons -->
