@@ -1,4 +1,4 @@
-# 🌍 QuickTranslate
+# <img src="docs/images/quicktranslate-logo.png" height="32" valign="middle"> QuickTranslate
 
 **Instant translation and pronunciation at your fingertips.**
 
