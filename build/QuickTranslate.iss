@@ -9,12 +9,12 @@
 
 #if IsSelfContained == "1"
   #define OutputName "QuickTranslate_Setup_Standalone"
-  #define SourceDir "bin\Release\net8.0-windows\win-x64\publish_standalone\*"
-  #define ExeSource "bin\Release\net8.0-windows\win-x64\publish_standalone\QuickTranslate.exe"
+  #define SourceDir "..\src\QuickTranslate\bin\Release\net8.0-windows\win-x64\publish_standalone\*"
+  #define ExeSource "..\src\QuickTranslate\bin\Release\net8.0-windows\win-x64\publish_standalone\QuickTranslate.exe"
 #else
   #define OutputName "QuickTranslate_Setup_Light"
-  #define SourceDir "bin\Release\net8.0-windows\win-x64\publish_light\*"
-  #define ExeSource "bin\Release\net8.0-windows\win-x64\publish_light\QuickTranslate.exe"
+  #define SourceDir "..\src\QuickTranslate\bin\Release\net8.0-windows\win-x64\publish_light\*"
+  #define ExeSource "..\src\QuickTranslate\bin\Release\net8.0-windows\win-x64\publish_light\QuickTranslate.exe"
 #endif
 
 [Setup]
@@ -24,9 +24,9 @@ AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
-OutputDir=SetupOutput
+OutputDir=..\SetupOutput
 OutputBaseFilename={#OutputName}
-SetupIconFile=Assets\icon.ico
+SetupIconFile=..\src\QuickTranslate\Assets\icon.ico
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern

@@ -41,7 +41,6 @@ bld/
 [Ll]ogs/
 
 # Visual Studio 2015/2017 cache/options directory
-.agents/
 .vs/
 .vscode/
 # Visual Studio 2017 auto generated files
