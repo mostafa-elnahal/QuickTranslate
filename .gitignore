@@ -10,7 +10,7 @@
 
 # local docs
 old-docs/
-
+.agents/
 # debugging files
 crash_log.txt   
 debug.log

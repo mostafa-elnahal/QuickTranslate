@@ -3,7 +3,7 @@
 #endif
 
 #define MyAppName "QuickTranslate"
-#define MyAppVersion "1.0.0-beta.1"
+#define MyAppVersion "1.0.0-beta.2"
 #define MyAppPublisher "QuickTranslate"
 #define MyAppExeName "QuickTranslate.exe"
 

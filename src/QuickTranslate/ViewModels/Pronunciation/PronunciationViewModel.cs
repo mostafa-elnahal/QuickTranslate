@@ -9,6 +9,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 
+using QuickTranslate.Services.Providers;
+
 namespace QuickTranslate.ViewModels;
 
 public partial class PronunciationViewModel : ObservableObject, IDisposable
@@ -22,6 +24,7 @@ public partial class PronunciationViewModel : ObservableObject, IDisposable
     private readonly ILanguageMetadataService _languageService;
     private readonly IAudioSyncService _syncService;
     private readonly IAudioStreamingService _streamingService;
+    private readonly IStreamingAudioPlayerFactory _audioPlayerFactory;
 
     private IStreamingAudioPlayer? _streamingPlayer;
     public IStreamingAudioPlayer? StreamingPlayer => _streamingPlayer;
@@ -31,6 +34,10 @@ public partial class PronunciationViewModel : ObservableObject, IDisposable
 
     private List<(int StartIndex, int EndIndex)> _chunkWordRanges = new();
 
+    /// <summary>
+    /// Exact word-timing from GCP TTS mark timepoints. Null when using estimated timing.
+    /// </summary>
+    private IReadOnlyList<TimepointInfo>? _exactTimepoints;
     [ObservableProperty]
     private string _originalText = string.Empty;
 
@@ -91,13 +98,15 @@ public partial class PronunciationViewModel : ObservableObject, IDisposable
         ISettingsService settingsService,
         ILanguageMetadataService languageService,
         IAudioSyncService syncService,
-        IAudioStreamingService streamingService)
+        IAudioStreamingService streamingService,
+        IStreamingAudioPlayerFactory audioPlayerFactory)
     {
         _pronunciationService = pronunciationService;
         _settingsService = settingsService;
         _languageService = languageService;
         _syncService = syncService;
         _streamingService = streamingService;
+        _audioPlayerFactory = audioPlayerFactory;
 
         _settingsService.SettingsChanged += OnSettingsChanged;
     }

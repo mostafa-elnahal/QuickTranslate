@@ -10,4 +10,9 @@ public class PronunciationData
     public Uri? AudioUri { get; set; }
     public string DetectedLanguageCode { get; set; } = "en";
     public List<SyllableItem> Syllables { get; set; } = new();
+
+    /// <summary>
+    /// Exact word-timing data from GCP TTS SSML mark timepoints. Null for non-GCP providers.
+    /// </summary>
+    public IReadOnlyList<TimepointInfo>? Timepoints { get; set; }
 }

@@ -77,6 +77,17 @@ public class AppSettings
     public string EncryptedGeminiApiKey { get; set; } = string.Empty;
 
     /// <summary>
+    /// API Key for GCP Text-to-Speech provider (in-memory only).
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string GcpApiKey { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Encrypted GCP API Key for storage.
+    /// </summary>
+    public string EncryptedGcpApiKey { get; set; } = string.Empty;
+
+    /// <summary>
     /// Font size for the main translation text.
     /// </summary>
     public double FontSize { get; set; } = 18;

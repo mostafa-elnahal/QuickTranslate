@@ -119,7 +119,8 @@ public class GTranslateService : ITranslationService, IDisposable
             return new TranslationModel
             {
                 OriginalText = text,
-                MainTranslation = $"[Translation Error: {ex.Message}]",
+                MainTranslation = string.Empty,
+                ErrorMessage = ex.Message,
                 ProviderName = _currentProviderName
             };
         }

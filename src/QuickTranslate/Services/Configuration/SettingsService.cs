@@ -93,7 +93,7 @@ public class SettingsService : ISettingsService
         {
             _settings = loaded;
 
-            // Decrypt API Key
+            // Decrypt API Keys
             if (!string.IsNullOrEmpty(_settings.EncryptedGeminiApiKey))
             {
                 try
@@ -102,8 +102,21 @@ public class SettingsService : ISettingsService
                 }
                 catch (System.Security.Cryptography.CryptographicException ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Cryptography error decrypting API key: {ex.Message}");
+                    System.Diagnostics.Debug.WriteLine($"Cryptography error decrypting Gemini API key: {ex.Message}");
                     _settings.GeminiApiKey = string.Empty;
+                }
+            }
+
+            if (!string.IsNullOrEmpty(_settings.EncryptedGcpApiKey))
+            {
+                try
+                {
+                    _settings.GcpApiKey = Unprotect(_settings.EncryptedGcpApiKey);
+                }
+                catch (System.Security.Cryptography.CryptographicException ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Cryptography error decrypting GCP API key: {ex.Message}");
+                    _settings.GcpApiKey = string.Empty;
                 }
             }
         }
@@ -155,7 +168,7 @@ public class SettingsService : ISettingsService
 
     private void PrepareSettingsForSave()
     {
-        // Encrypt API Key before saving
+        // Encrypt Gemini API Key before saving
         if (!string.IsNullOrEmpty(_settings.GeminiApiKey))
         {
             try
@@ -164,13 +177,31 @@ public class SettingsService : ISettingsService
             }
             catch (System.Security.Cryptography.CryptographicException ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Cryptography error encrypting API key: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Cryptography error encrypting Gemini API key: {ex.Message}");
                 _settings.EncryptedGeminiApiKey = string.Empty;
             }
         }
         else
         {
             _settings.EncryptedGeminiApiKey = string.Empty;
+        }
+
+        // Encrypt GCP API Key before saving
+        if (!string.IsNullOrEmpty(_settings.GcpApiKey))
+        {
+            try
+            {
+                _settings.EncryptedGcpApiKey = Protect(_settings.GcpApiKey);
+            }
+            catch (System.Security.Cryptography.CryptographicException ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Cryptography error encrypting GCP API key: {ex.Message}");
+                _settings.EncryptedGcpApiKey = string.Empty;
+            }
+        }
+        else
+        {
+            _settings.EncryptedGcpApiKey = string.Empty;
         }
     }
 

@@ -70,7 +70,11 @@ public partial class PronunciationViewModel
             IsSlowMode = false;
             OnPropertyChanged(nameof(IsSlowMode));
 
-            if (data.AudioUri != null) AudioUri = data.AudioUri;
+            if (data.AudioUri != null)
+            {
+                AudioUri = data.AudioUri;
+                _exactTimepoints = data.Timepoints;
+            }
             else await UpdateAudioUriAsync();
         }
         catch (Exception ex)
@@ -93,6 +97,7 @@ public partial class PronunciationViewModel
         _chunkWordRanges.Clear();
         _wordAnimationCts?.Cancel();
         AudioUri = null;
+        _exactTimepoints = null;
         PhoneticsDisplay = string.Empty;
         IsPlaying = false;
     }
@@ -111,4 +116,5 @@ public partial class PronunciationViewModel
         foreach (var word in words)
             Words.Add(new WordItem { Text = word });
     }
+
 }

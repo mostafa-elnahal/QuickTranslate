@@ -9,17 +9,13 @@ using System.IO;
 
 namespace QuickTranslate.Services.Providers;
 
-public class GooglePronunciationProvider : IPronunciationProvider
+public class GooglePronunciationProvider : IPronunciationProvider, IDisposable
 {
-    private readonly ITranslationService _translationService;
-    private readonly ISyllableService _syllableService;
+    private readonly HttpClient _httpClient;
 
-    private static readonly HttpClient _httpClient = new HttpClient();
-
-    static GooglePronunciationProvider()
+    public GooglePronunciationProvider()
     {
-        _httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
-        _httpClient.DefaultRequestHeaders.Add("Referer", "https://translate.google.com/");
+        _httpClient = new HttpClient();
     }
 
     public string Name => Constants.PronunciationProviders.Google;
@@ -33,12 +29,6 @@ public class GooglePronunciationProvider : IPronunciationProvider
     /// Unofficial Google TTS limit is 200 characters.
     /// </summary>
     public int MaxChunkSize => 150;
-
-    public GooglePronunciationProvider(ITranslationService translationService, ISyllableService syllableService)
-    {
-        _translationService = translationService;
-        _syllableService = syllableService;
-    }
 
     /// <summary>
     /// Streams audio by downloading MP3 chunks and decoding to PCM.
@@ -60,7 +50,11 @@ public class GooglePronunciationProvider : IPronunciationProvider
             if (!audioResult.IsSuccess || audioResult.Data == null)
                 return PronunciationResult<bool>.Failure(audioResult.Message);
 
-            using var response = await _httpClient.GetAsync(audioResult.Data, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            using var request = new HttpRequestMessage(HttpMethod.Get, audioResult.Data);
+            request.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+            request.Headers.Add("Referer", "https://translate.google.com/");
+            
+            using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
             
             if (!response.IsSuccessStatusCode)
             {
@@ -69,24 +63,39 @@ public class GooglePronunciationProvider : IPronunciationProvider
                     $"Google TTS Error: {response.StatusCode} ({(int)response.StatusCode}). {errorDetail}");
             }
 
-            var mp3Bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+            using var networkStream = await response.Content.ReadAsStreamAsync(cancellationToken);
             
-            using (var ms = new System.IO.MemoryStream(mp3Bytes))
-            using (var reader = new NAudio.Wave.Mp3FileReader(ms))
+            NAudio.Wave.IMp3FrameDecompressor? decompressor = null;
+            try
             {
-                var format = reader.WaveFormat;
-                player.Initialize(format.SampleRate, format.Channels, format.BitsPerSample);
-
-                byte[] buffer = new byte[32768]; // 32KB buffer
-                int read;
-                while ((read = reader.Read(buffer, 0, buffer.Length)) > 0)
+                NAudio.Wave.Mp3Frame? frame;
+                while ((frame = NAudio.Wave.Mp3Frame.LoadFromStream(networkStream)) != null)
                 {
                     if (cancellationToken.IsCancellationRequested) break;
-                    
-                    byte[] pcmChunk = new byte[read];
-                    Buffer.BlockCopy(buffer, 0, pcmChunk, 0, read);
-                    player.EnqueueSamples(pcmChunk);
+
+                    if (decompressor == null)
+                    {
+                        var waveFormat = new NAudio.Wave.Mp3WaveFormat(
+                            frame.SampleRate, frame.ChannelMode == NAudio.Wave.ChannelMode.Mono ? 1 : 2,
+                            frame.FrameLength, frame.BitRate);
+                        decompressor = new NAudio.Wave.AcmMp3FrameDecompressor(waveFormat);
+                        
+                        player.Initialize(frame.SampleRate, frame.ChannelMode == NAudio.Wave.ChannelMode.Mono ? 1 : 2, 16);
+                    }
+
+                    byte[] pcmBuffer = new byte[decompressor.OutputFormat.AverageBytesPerSecond];
+                    int bytesDecompressed = decompressor.DecompressFrame(frame, pcmBuffer, 0);
+                    if (bytesDecompressed > 0)
+                    {
+                        byte[] pcmChunk = new byte[bytesDecompressed];
+                        Buffer.BlockCopy(pcmBuffer, 0, pcmChunk, 0, bytesDecompressed);
+                        await player.EnqueueSamplesAsync(pcmChunk, cancellationToken);
+                    }
                 }
+            }
+            finally
+            {
+                decompressor?.Dispose();
             }
 
             player.Play();
@@ -96,72 +105,19 @@ public class GooglePronunciationProvider : IPronunciationProvider
         {
             return PronunciationResult<bool>.Failure($"Network error connecting to Google: {ex.Message}", ex);
         }
+        catch (EndOfStreamException)
+        {
+            // Reached end of streaming response abruptly
+            player.Play();
+            return PronunciationResult<bool>.Success(true);
+        }
         catch (Exception ex)
         {
             return PronunciationResult<bool>.Failure("Google streaming failed.", ex);
         }
     }
 
-    public async Task<PronunciationResult<PronunciationData>> GetPronunciationAsync(string text)
-    {
-        try
-        {
-            var data = new PronunciationData { OriginalText = text };
 
-            if (string.IsNullOrWhiteSpace(text))
-                return PronunciationResult<PronunciationData>.Success(data);
-
-            // 1. Get translation to detect language and phonetics
-            var result = await _translationService.TranslateAsync(text, "en");
-
-            // Check for error pattern from GTranslateService
-            if (!string.IsNullOrEmpty(result.MainTranslation) &&
-                result.MainTranslation.StartsWith("[Translation Error:"))
-            {
-                var errorMsg = result.MainTranslation.Trim('[', ']');
-                return PronunciationResult<PronunciationData>.Failure($"Translation Service Error: {errorMsg}");
-            }
-
-            data.DetectedLanguageCode = LanguageHelper.MapToIso6391(result.SourceLanguage);
-            data.Phonetics = result.Phonetic;
-
-            // 2. Generate Syllables
-            try
-            {
-                var syllables = _syllableService.GetSyllables(text, result.Phonetic);
-                foreach (var (syllableText, isStressed) in syllables)
-                {
-                    data.Syllables.Add(new SyllableItem
-                    {
-                        Text = syllableText,
-                        IsStressed = isStressed
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                // Non-critical, just log and continue without syllables
-                System.Diagnostics.Debug.WriteLine($"Syllable generation failed: {ex}");
-            }
-
-            // 3. Generate default Audio URI (normal speed)
-            // If text is long, we force streaming mode by NOT returning an AudioUri here.
-            if (text.Length <= MaxChunkSize)
-            {
-                var audioResult = await GetAudioUriAsync(text, data.DetectedLanguageCode, false);
-                if (audioResult.IsSuccess)
-                {
-                    data.AudioUri = audioResult.Data;
-                }
-            }
-
-            return PronunciationResult<PronunciationData>.Success(data);
-        }
-        catch (Exception ex)
-        {
-            return PronunciationResult<PronunciationData>.Failure("Failed to load pronunciation data.", ex);
-        }
-    }
 
     public Task<PronunciationResult<Uri?>> GetAudioUriAsync(string text, string languageCode, bool slowMode)
     {
@@ -180,5 +136,11 @@ public class GooglePronunciationProvider : IPronunciationProvider
         {
             return Task.FromResult(PronunciationResult<Uri?>.Failure("Failed to generate audio link.", ex));
         }
+    }
+
+    public void Dispose()
+    {
+        _httpClient.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

@@ -6,6 +6,7 @@ public static class Constants
     {
         public const string Google = "Google";
         public const string Gemini = "Gemini";
+        public const string Gcp = "GCP";
     }
 
     public static class TranslationProviders

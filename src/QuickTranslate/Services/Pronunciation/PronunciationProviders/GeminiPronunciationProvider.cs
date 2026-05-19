@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Net.Http;
 using System.Text;
@@ -17,14 +18,11 @@ public class GeminiPronunciationProvider : IPronunciationProvider, IDisposable
     private const string DefaultVoice = "Kore";
 
     private readonly HttpClient _httpClient;
-    private readonly ITranslationService _translationService;
-    private readonly ISyllableService _syllableService;
     private readonly ISettingsService _settingsService;
 
-    private string? _lastTempFilePath;
-    private string _lastText = string.Empty;
+    // Thread-safe audio file cache keyed by (text, slowMode)
+    private readonly ConcurrentDictionary<(string Text, bool SlowMode), string> _audioCache = new();
     private string _lastLanguageCode = "en";
-    private bool _lastSlowMode = false;
 
     public string Name => Constants.PronunciationProviders.Gemini;
 
@@ -38,92 +36,36 @@ public class GeminiPronunciationProvider : IPronunciationProvider, IDisposable
     /// </summary>
     public int MaxChunkSize => 4000;
 
-    public GeminiPronunciationProvider(
-        ITranslationService translationService,
-        ISyllableService syllableService,
-        ISettingsService settingsService)
+    public GeminiPronunciationProvider(ISettingsService settingsService)
     {
         _httpClient = new HttpClient
         {
             Timeout = TimeSpan.FromMinutes(10) // Increase timeout for long text generation
         };
-        _translationService = translationService;
-        _syllableService = syllableService;
         _settingsService = settingsService;
     }
 
-    public async Task<PronunciationResult<PronunciationData>> GetPronunciationAsync(string text)
-    {
-        try
-        {
-            var data = new PronunciationData { OriginalText = text };
 
-            if (string.IsNullOrWhiteSpace(text))
-                return PronunciationResult<PronunciationData>.Success(data);
-
-            // 1. Get translation (same as Google)
-            var result = await _translationService.TranslateAsync(text, "en");
-            data.DetectedLanguageCode = LanguageHelper.MapToIso6391(result.SourceLanguage);
-            data.Phonetics = result.Phonetic;
-            _lastLanguageCode = data.DetectedLanguageCode;
-
-            // 2. Generate Syllables
-            try
-            {
-                var syllables = _syllableService.GetSyllables(text, result.Phonetic);
-                foreach (var (syllableText, isStressed) in syllables)
-                {
-                    data.Syllables.Add(new SyllableItem
-                    {
-                        Text = syllableText,
-                        IsStressed = isStressed
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Syllable generation failed: {ex}");
-            }
-
-            // 3. Generate audio
-            var audioResult = await GetAudioUriAsync(text, data.DetectedLanguageCode, false);
-            if (audioResult.IsSuccess)
-            {
-                data.AudioUri = audioResult.Data;
-            }
-
-            return PronunciationResult<PronunciationData>.Success(data);
-        }
-        catch (Exception ex)
-        {
-            return PronunciationResult<PronunciationData>.Failure("Failed to load pronunciation.", ex);
-        }
-    }
 
     public async Task<PronunciationResult<Uri?>> GetAudioUriAsync(string text, string languageCode, bool slowMode)
     {
         try
         {
-            // Cache check
-            if (_lastTempFilePath != null &&
-                text == _lastText &&
-                slowMode == _lastSlowMode &&
-                File.Exists(_lastTempFilePath))
+            var cacheKey = (text, slowMode);
+
+            // Thread-safe cache check
+            if (_audioCache.TryGetValue(cacheKey, out var cachedPath) && File.Exists(cachedPath))
             {
-                System.Diagnostics.Debug.WriteLine($"[GeminiProvider] Cache HIT for '{text}'");
-                return PronunciationResult<Uri?>.Success(new Uri(_lastTempFilePath));
+                System.Diagnostics.Debug.WriteLine($"[GeminiProvider] Cache HIT for '{text}' (slow={slowMode})");
+                return PronunciationResult<Uri?>.Success(new Uri(cachedPath));
             }
 
             System.Diagnostics.Debug.WriteLine($"[GeminiProvider] Cache MISS: generating audio for '{text}'");
 
-            CleanupTempFile();
-
-            using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(15));
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
             var uri = await GenerateAudioAsync(text, slowMode, cts.Token);
 
-            _lastText = text;
             _lastLanguageCode = languageCode;
-            _lastSlowMode = slowMode;
 
             return PronunciationResult<Uri?>.Success(uri);
         }
@@ -133,7 +75,6 @@ public class GeminiPronunciationProvider : IPronunciationProvider, IDisposable
         }
         catch (HttpRequestException ex)
         {
-            // Generic network/API error
             return PronunciationResult<Uri?>.Failure("Network error connecting to Gemini.", ex);
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("API key is missing"))
@@ -150,7 +91,7 @@ public class GeminiPronunciationProvider : IPronunciationProvider, IDisposable
         }
     }
 
-    private async Task<Uri> GenerateAudioAsync(string text, bool slowMode, System.Threading.CancellationToken cancellationToken = default)
+    private async Task<Uri> GenerateAudioAsync(string text, bool slowMode, CancellationToken cancellationToken = default)
     {
         string apiKey = _settingsService.Settings.GeminiApiKey;
 
@@ -205,8 +146,6 @@ public class GeminiPronunciationProvider : IPronunciationProvider, IDisposable
             throw new HttpRequestException($"Gemini API Error: {response.StatusCode}");
         }
 
-        response.EnsureSuccessStatusCode();
-
         string responseBody = await response.Content.ReadAsStringAsync();
         using JsonDocument doc = JsonDocument.Parse(responseBody);
 
@@ -229,12 +168,19 @@ public class GeminiPronunciationProvider : IPronunciationProvider, IDisposable
         // Convert PCM to WAV
         byte[] wavBytes = ConvertPcmToWav(pcmBytes, 24000, 1, 16);
 
-        // Save to temp file
-        CleanupTempFile();
-        _lastTempFilePath = Path.Combine(Path.GetTempPath(), $"gemini_audio_{Guid.NewGuid()}.wav");
-        await File.WriteAllBytesAsync(_lastTempFilePath, wavBytes);
+        // Save to temp file and cache the path
+        var tempPath = Path.Combine(Path.GetTempPath(), $"gemini_audio_{Guid.NewGuid()}.wav");
+        await File.WriteAllBytesAsync(tempPath, wavBytes);
 
-        return new Uri(_lastTempFilePath);
+        // Evict any stale entry for this key before adding
+        var cacheKey = (text, slowMode);
+        if (_audioCache.TryRemove(cacheKey, out var oldPath))
+        {
+            try { File.Delete(oldPath); } catch { /* ignore cleanup errors */ }
+        }
+        _audioCache[cacheKey] = tempPath;
+
+        return new Uri(tempPath);
     }
 
     private static byte[] ConvertPcmToWav(byte[] pcmData, int sampleRate, int channels, int bitsPerSample)
@@ -293,6 +239,7 @@ public class GeminiPronunciationProvider : IPronunciationProvider, IDisposable
                 ? $"Please speak this text slowly and clearly for pronunciation practice: {text}"
                 : $"Please pronounce this text clearly: {text}";
 
+            // TODO: consider refactoring the anonymous type to a class
             var requestBody = new
             {
                 contents = new[]
@@ -371,7 +318,7 @@ public class GeminiPronunciationProvider : IPronunciationProvider, IDisposable
                                     if (!string.IsNullOrEmpty(base64Audio))
                                     {
                                         byte[] pcmChunk = Convert.FromBase64String(base64Audio);
-                                        player.EnqueueSamples(pcmChunk);
+                                        await player.EnqueueSamplesAsync(pcmChunk, cancellationToken);
 
                                         if (!playbackStarted)
                                         {
@@ -406,17 +353,18 @@ public class GeminiPronunciationProvider : IPronunciationProvider, IDisposable
         }
     }
 
-    private void CleanupTempFile()
+    private void CleanupTempFiles()
     {
-        if (_lastTempFilePath != null && File.Exists(_lastTempFilePath))
+        foreach (var path in _audioCache.Values)
         {
-            try { File.Delete(_lastTempFilePath); } catch { /* Ignore cleanup errors */ }
+            try { if (File.Exists(path)) File.Delete(path); } catch { /* ignore cleanup errors */ }
         }
+        _audioCache.Clear();
     }
 
     public void Dispose()
     {
-        CleanupTempFile();
+        CleanupTempFiles();
         _httpClient.Dispose();
         GC.SuppressFinalize(this);
     }

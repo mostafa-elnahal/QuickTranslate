@@ -1,4 +1,6 @@
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace QuickTranslate.Services.Audio;
 
@@ -17,8 +19,11 @@ public interface IStreamingAudioPlayer : IDisposable
 
     /// <summary>
     /// Enqueues PCM audio data for playback.
+    /// Applies backpressure asynchronously if the internal buffer is full.
     /// </summary>
-    void EnqueueSamples(byte[] pcmData);
+    /// <param name="pcmData">The PCM audio data to enqueue.</param>
+    /// <param name="cancellationToken">Token to cancel the wait if the buffer is full.</param>
+    Task EnqueueSamplesAsync(byte[] pcmData, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Starts playback.
@@ -71,6 +76,24 @@ public interface IStreamingAudioPlayer : IDisposable
     /// Sets the playback position.
     /// </summary>
     void SetPosition(TimeSpan position);
+
+    /// <summary>
+    /// Indicates that an active stream is feeding data to the player.
+    /// While true, buffer-drain events are suppressed.
+    /// </summary>
+    bool IsStreamingActive { get; }
+
+    /// <summary>
+    /// Signals that a streaming session has started. PlaybackCompleted
+    /// will be suppressed until <see cref="EndStreaming"/> is called.
+    /// </summary>
+    void BeginStreaming();
+
+    /// <summary>
+    /// Signals that no more data will be streamed. If the buffer has
+    /// already drained, PlaybackCompleted fires immediately.
+    /// </summary>
+    void EndStreaming();
 
     /// <summary>
     /// Event raised when playback completes.

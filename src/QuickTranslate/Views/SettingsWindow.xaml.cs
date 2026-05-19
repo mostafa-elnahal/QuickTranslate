@@ -91,12 +91,27 @@ public partial class SettingsWindow : Window
         }
     }
 
+    private void GcpApiKeyBox_PasswordChanged(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is SettingsViewModel vm)
+        {
+            vm.GcpApiKey = GcpApiKeyBox.Password;
+        }
+    }
+
     protected override void OnContentRendered(EventArgs e)
     {
         base.OnContentRendered(e);
-        if (DataContext is SettingsViewModel vm && !string.IsNullOrEmpty(vm.GeminiApiKey))
+        if (DataContext is SettingsViewModel vm)
         {
-            GeminiApiKeyBox.Password = vm.GeminiApiKey;
+            if (!string.IsNullOrEmpty(vm.GeminiApiKey))
+            {
+                GeminiApiKeyBox.Password = vm.GeminiApiKey;
+            }
+            if (!string.IsNullOrEmpty(vm.GcpApiKey))
+            {
+                GcpApiKeyBox.Password = vm.GcpApiKey;
+            }
         }
     }
 }

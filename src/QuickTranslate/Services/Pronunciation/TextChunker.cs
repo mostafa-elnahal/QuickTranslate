@@ -5,7 +5,7 @@ using System.Text;
 using QuickTranslate.Models;
 using System.Linq;
 
-namespace QuickTranslate.Services.Helpers;
+namespace QuickTranslate.Services.Pronunciation;
 
 /// <summary>
 /// Proives methods to split text into chunks suitable for streaming TTS.

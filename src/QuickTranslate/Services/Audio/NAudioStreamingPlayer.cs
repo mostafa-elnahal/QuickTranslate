@@ -1,6 +1,7 @@
 using System;
 using NAudio.Wave;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace QuickTranslate.Services.Audio;
 
@@ -12,6 +13,7 @@ public class NAudioStreamingPlayer : IStreamingAudioPlayer
     private BufferedWaveProvider? _bufferedWaveProvider;
     private WaveOutEvent? _waveOut;
     private bool _isPlaying;
+    private bool _isStreamingActive;
     private bool _disposed;
 
     // Cache of all PCM data for replay support
@@ -53,21 +55,30 @@ public class NAudioStreamingPlayer : IStreamingAudioPlayer
         _positionOffsetBytes = 0;
     }
 
-    public void EnqueueSamples(byte[] pcmData)
+    /// <summary>
+    /// Enqueues PCM data to the player's buffer for playback.
+    /// Applies backpressure asynchronously if the internal buffer is full,
+    /// yielding the calling thread instead of blocking it.
+    /// </summary>
+    /// <param name="pcmData">The PCM data to enqueue.</param>
+    /// <param name="cancellationToken">Token to cancel the wait if the buffer is full.</param>
+    public async Task EnqueueSamplesAsync(byte[] pcmData, CancellationToken cancellationToken = default)
     {
         if (_bufferedWaveProvider == null)
             throw new InvalidOperationException("Player not initialized. Call Initialize() first.");
 
-        // Backpressure: If buffer is full, wait until there's space.
+        // Backpressure: If buffer is full, wait asynchronously until there's space.
         // This prevents "skipping" where new data overwrites/discards old data (if DiscardOnBufferOverflow was true),
         // or effectively pauses the download network stream until the user listens to some audio.
         while (_bufferedWaveProvider.BufferedBytes + pcmData.Length > _bufferedWaveProvider.BufferLength)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             // If the player was stopped/disposed from another thread, abort.
             if (_bufferedWaveProvider == null) return;
 
             System.Diagnostics.Debug.WriteLine("[NAudioPlayer] Buffer full! waiting...");
-            Thread.Sleep(50); // Small wait
+            await Task.Delay(50, cancellationToken);
         }
 
         _bufferedWaveProvider.AddSamples(pcmData, 0, pcmData.Length);
@@ -75,6 +86,14 @@ public class NAudioStreamingPlayer : IStreamingAudioPlayer
 
         // Cache for replay
         _pcmHistory.Add((byte[])pcmData.Clone());
+
+        // Auto-resume: if the WaveOutEvent stopped because the buffer ran dry
+        // during active streaming, restart playback now that new data is available.
+        if (_isStreamingActive && _waveOut != null && _waveOut.PlaybackState != PlaybackState.Playing)
+        {
+            _waveOut.Play();
+            _isPlaying = true;
+        }
     }
 
     public void Play()
@@ -119,6 +138,7 @@ public class NAudioStreamingPlayer : IStreamingAudioPlayer
         _bufferedWaveProvider?.ClearBuffer();
         _bufferedWaveProvider = null;
         _isPlaying = false;
+        _isStreamingActive = false;
         IsPaused = false;
         _pcmHistory.Clear(); // Clear history on full stop
     }
@@ -258,8 +278,36 @@ public class NAudioStreamingPlayer : IStreamingAudioPlayer
 
     public bool IsPaused { get; private set; }
 
+    public bool IsStreamingActive => _isStreamingActive;
+
+    public void BeginStreaming()
+    {
+        _isStreamingActive = true;
+    }
+
+    public void EndStreaming()
+    {
+        _isStreamingActive = false;
+
+        // If the buffer already drained while we were still "streaming",
+        // the OnPlaybackStopped handler suppressed the event. Fire it now.
+        if (_bufferedWaveProvider != null && _bufferedWaveProvider.BufferedBytes == 0 && !_isPlaying)
+        {
+            PlaybackCompleted?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
     private void OnPlaybackStopped(object? sender, StoppedEventArgs e)
     {
+        if (_isStreamingActive)
+        {
+            // Buffer ran dry between SSE chunks — suppress the event.
+            // The WaveOutEvent has stopped itself, but we keep _isPlaying true
+            // so the UI doesn't flicker. Play() will be called again when
+            // new samples are enqueued via EnqueueSamplesAsync.
+            return;
+        }
+
         _isPlaying = false;
         PlaybackCompleted?.Invoke(this, EventArgs.Empty);
     }

@@ -250,6 +250,13 @@
                                   MediaFailed="PronunciationAudioPlayer_MediaFailed"
                                   Visibility="Collapsed"/>
                     
+                    <!-- Error Message -->
+                    <TextBlock Text="{Binding ErrorMessage, Mode=OneWay}"
+                               Foreground="LightCoral"
+                               Margin="12,0,12,8"
+                               TextWrapping="Wrap"
+                               Visibility="{Binding ErrorMessage, Converter={StaticResource StringToVis}}"/>
+
                     <!-- Main Translated Word -->
                     <TextBox Text="{Binding MainTranslation, Mode=OneWay}" 
                     		 PreviewMouseLeftButtonDown="TranslationBox_PreviewMouseLeftButtonDown"

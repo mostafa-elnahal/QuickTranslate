@@ -2,7 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using QuickTranslate.Services.Audio;
-using QuickTranslate.Services.Helpers;
+using QuickTranslate.Services.Pronunciation;
 using CommunityToolkit.Mvvm.Input;
 using System.Linq;
 
@@ -86,16 +86,14 @@ public partial class PronunciationViewModel
             if (_pronunciationService.SupportsStreaming)
             {
                 IsStreamingMode = true;
-                _streamingPlayer = new NAudioStreamingPlayer();
+                _streamingPlayer = _audioPlayerFactory.CreatePlayer();
                 _streamingCts = new CancellationTokenSource();
+                _streamingPlayer.BeginStreaming();
 
                 _streamingPlayer.PlaybackCompleted += (s, e) =>
                 {
-                    if (!IsDownloadingChunks)
-                    {
-                        IsPlaying = false;
-                        ClearWordHighlights();
-                    }
+                    IsPlaying = false;
+                    ClearWordHighlights();
                 };
 
                 var chunks = TextChunker.ChunkText(Words.ToList(), _pronunciationService.MaxChunkSize).ToList();
@@ -135,20 +133,24 @@ public partial class PronunciationViewModel
                             return;
                         }
 
-                        if (!result.IsSuccess) StatusMessage = result.Message;
+                        if (!result.IsSuccess)
+                            System.Windows.Application.Current.Dispatcher.Invoke(() => StatusMessage = result.Message);
                     }
                     catch (Exception ex)
                     {
                         if (_pronunciationGeneration == currentGen)
                         {
-                            StatusMessage = "Audio streaming failed.";
+                            System.Windows.Application.Current.Dispatcher.Invoke(() => StatusMessage = "Audio streaming failed.");
                             System.Diagnostics.Debug.WriteLine($"Streaming background error: {ex.Message}");
                         }
                     }
                     finally
                     {
                         if (_pronunciationGeneration == currentGen)
-                            IsDownloadingChunks = false;
+                        {
+                            System.Windows.Application.Current.Dispatcher.Invoke(() => IsDownloadingChunks = false);
+                            _streamingPlayer?.EndStreaming();
+                        }
                     }
                 });
             }
@@ -178,13 +180,21 @@ public partial class PronunciationViewModel
     public void StopStreaming()
     {
         IsDownloadingChunks = false;
-        _wordAnimationCts?.Cancel();
-        _streamingCts?.Cancel();
-        _streamingPlayer?.Stop();
-        _streamingPlayer?.Dispose();
-        _streamingPlayer = null;
-        _streamingCts?.Dispose();
-        _streamingCts = null;
+        
         ClearWordHighlights();
+
+        if (_streamingCts != null)
+        {
+            try { _streamingCts.Cancel(); } catch (ObjectDisposedException) { }
+            _streamingCts.Dispose();
+            _streamingCts = null;
+        }
+
+        if (_streamingPlayer != null)
+        {
+            try { _streamingPlayer.Stop(); } catch (Exception) { }
+            _streamingPlayer.Dispose();
+            _streamingPlayer = null;
+        }
     }
 }

@@ -20,8 +20,6 @@ public interface IPronunciationProvider
     /// </summary>
     int MaxChunkSize { get; }
 
-    Task<PronunciationResult<PronunciationData>> GetPronunciationAsync(string text);
-
     /// <summary>
     /// Gets audio as a file URI (non-streaming, for MediaElement).
     /// </summary>

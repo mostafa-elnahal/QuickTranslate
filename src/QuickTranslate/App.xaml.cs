@@ -7,6 +7,7 @@ using QuickTranslate.ViewModels;
 using QuickTranslate.Views;
 using QuickTranslate.Services.Providers;
 using QuickTranslate.Services.Pronunciation;
+using QuickTranslate.Services.Audio;
 using QuickTranslate.Helpers;
 
 namespace QuickTranslate;
@@ -70,23 +71,25 @@ public partial class App : Application
         services.AddSingleton<ILanguageMetadataService, LanguageMetadataService>();
         services.AddSingleton<IAudioSyncService, AudioSyncService>();
         services.AddSingleton<IAudioStreamingService, AudioStreamingService>();
+        services.AddSingleton<IStreamingAudioPlayerFactory, StreamingAudioPlayerFactory>();
 
         // Pronunciation Providers & Service
-        services.AddSingleton<IPronunciationProvider>(sp => 
-            new GooglePronunciationProvider(
-                sp.GetRequiredService<ITranslationService>(), 
-                sp.GetRequiredService<ISyllableService>()));
+        services.AddSingleton<IPronunciationProvider, GooglePronunciationProvider>();
         
         services.AddSingleton<IPronunciationProvider>(sp => 
             new GeminiPronunciationProvider(
-                sp.GetRequiredService<ITranslationService>(), 
-                sp.GetRequiredService<ISyllableService>(),
+                sp.GetRequiredService<ISettingsService>()));
+
+        services.AddSingleton<IPronunciationProvider>(sp =>
+            new GcpPronunciationProvider(
                 sp.GetRequiredService<ISettingsService>()));
 
         services.AddSingleton<IPronunciationService>(sp => 
             new PronunciationService(
                 sp.GetServices<IPronunciationProvider>(), 
-                sp.GetRequiredService<ISettingsService>()));
+                sp.GetRequiredService<ISettingsService>(),
+                sp.GetRequiredService<ITranslationService>(),
+                sp.GetRequiredService<ISyllableService>()));
 
         // ViewModels
         services.AddSingleton<PopupViewModel>();

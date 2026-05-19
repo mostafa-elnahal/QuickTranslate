@@ -56,11 +56,15 @@ public partial class SettingsViewModel : ObservableObject
     private bool _showPronunciation = true;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsApiKeyInputEnabled))]
+    [NotifyPropertyChangedFor(nameof(IsGeminiApiKeyInputEnabled))]
+    [NotifyPropertyChangedFor(nameof(IsGcpApiKeyInputEnabled))]
     private string _pronunciationProvider = Constants.PronunciationProviders.Google;
 
     [ObservableProperty]
     private string _geminiApiKey = string.Empty;
+
+    [ObservableProperty]
+    private string _gcpApiKey = string.Empty;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveCommand))]
@@ -70,7 +74,12 @@ public partial class SettingsViewModel : ObservableObject
     private static readonly ObservableCollection<string> StaticProviders = new() { Constants.TranslationProviders.Google, Constants.TranslationProviders.Bing, Constants.TranslationProviders.Yandex };
     private static readonly ObservableCollection<string> StaticFontFamilies = new() { "Segoe UI", "Calibri", "Arial", "Consolas", "Georgia" };
     private static readonly ObservableCollection<string> StaticFontWeights = new() { "Light", "Normal", "Medium", "SemiBold", "Bold" };
-    private static readonly ObservableCollection<string> StaticPronunciationProviders = new() { Constants.PronunciationProviders.Google, Constants.PronunciationProviders.Gemini };
+    private static readonly ObservableCollection<PronunciationProviderInfo> StaticPronunciationProviders = new()
+    {
+        PronunciationProviderInfo.Create(Constants.PronunciationProviders.Google),
+        PronunciationProviderInfo.Create(Constants.PronunciationProviders.Gemini),
+        PronunciationProviderInfo.Create(Constants.PronunciationProviders.Gcp)
+    };
 
     public SettingsViewModel(ISettingsService settingsService, IDialogService dialogService, ITranslationService translationService)
     {
@@ -95,9 +104,10 @@ public partial class SettingsViewModel : ObservableObject
     public ObservableCollection<string> AvailableProviders { get; }
     public ObservableCollection<string> AvailableFontFamilies { get; }
     public ObservableCollection<string> AvailableFontWeights { get; }
-    public ObservableCollection<string> AvailablePronunciationProviders { get; }
+    public ObservableCollection<PronunciationProviderInfo> AvailablePronunciationProviders { get; }
 
-    public bool IsApiKeyInputEnabled => PronunciationProvider == Constants.PronunciationProviders.Gemini;
+    public bool IsGeminiApiKeyInputEnabled => PronunciationProvider == Constants.PronunciationProviders.Gemini;
+    public bool IsGcpApiKeyInputEnabled => PronunciationProvider == Constants.PronunciationProviders.Gcp;
 
     #endregion
 
@@ -110,7 +120,8 @@ public partial class SettingsViewModel : ObservableObject
         // Mark dirty for any setting property change (except IsDirty itself)
         if (e.PropertyName != nameof(IsDirty) && 
             e.PropertyName != nameof(SelectedCategory) && 
-            e.PropertyName != nameof(IsApiKeyInputEnabled))
+            e.PropertyName != nameof(IsGeminiApiKeyInputEnabled) &&
+            e.PropertyName != nameof(IsGcpApiKeyInputEnabled))
         {
             IsDirty = true;
         }
@@ -133,6 +144,14 @@ public partial class SettingsViewModel : ObservableObject
             return;
         }
 
+        if (PronunciationProvider == Constants.PronunciationProviders.Gcp && string.IsNullOrWhiteSpace(GcpApiKey))
+        {
+            _dialogService.ShowWarning(
+                "GCP API Key is required when GCP is selected as the pronunciation provider.",
+                "Missing API Key");
+            return;
+        }
+
         _settingsService.Settings.StartWithWindows = StartWithWindows;
         _settingsService.Settings.WindowOpacity = WindowOpacity;
         _settingsService.Settings.DefaultSourceLanguage = DefaultSourceLanguage;
@@ -146,6 +165,7 @@ public partial class SettingsViewModel : ObservableObject
         _settingsService.Settings.ShowPronunciation = ShowPronunciation;
         _settingsService.Settings.PronunciationProvider = PronunciationProvider;
         _settingsService.Settings.GeminiApiKey = GeminiApiKey;
+        _settingsService.Settings.GcpApiKey = GcpApiKey;
 
         await _settingsService.SaveAsync();
         IsDirty = false;
@@ -175,6 +195,7 @@ public partial class SettingsViewModel : ObservableObject
         ShowPronunciation = settings.ShowPronunciation;
         PronunciationProvider = settings.PronunciationProvider;
         GeminiApiKey = settings.GeminiApiKey;
+        GcpApiKey = settings.GcpApiKey;
         IsDirty = false;
     }
 }

@@ -14,6 +14,8 @@ public class TranslationModel
     public string SourceLanguageCode { get; set; } = "en";
     public string TargetLanguage { get; set; } = "Arabic";
     public string TargetLanguageCode { get; set; } = "ar";
+    public string ErrorMessage { get; set; } = string.Empty;
+    public bool IsSuccess => string.IsNullOrEmpty(ErrorMessage);
     public List<DictionaryEntry> DictionaryEntries { get; set; } = new List<DictionaryEntry>();
 
     /// <summary>

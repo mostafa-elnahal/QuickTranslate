@@ -336,19 +336,36 @@
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="30"/>
                                     <RowDefinition Height="30"/>
+                                    <RowDefinition Height="30"/>
                                 </Grid.RowDefinitions>
                                 
                                 <TextBlock Grid.Row="0" Text="Provider:" VerticalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}"/>
                                 <ComboBox Grid.Row="0" Grid.Column="1" 
                                           ItemsSource="{Binding AvailablePronunciationProviders}"
-                                          SelectedItem="{Binding PronunciationProvider}"
+                                          SelectedValue="{Binding PronunciationProvider}"
+                                          SelectedValuePath="Name"
                                           Style="{StaticResource SettingsComboBoxStyle}"
-                                          VerticalAlignment="Center"/>
+                                          VerticalAlignment="Center">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type models:PronunciationProviderInfo}">
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Ellipse Width="8" Height="8" 
+                                                         Margin="0,0,6,0" 
+                                                         VerticalAlignment="Center">
+                                                    <Ellipse.Fill>
+                                                        <SolidColorBrush Color="{Binding BrandColor}"/>
+                                                    </Ellipse.Fill>
+                                                </Ellipse>
+                                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
 
                                 <TextBlock Grid.Row="1" Text="Gemini API Key:" 
                                            VerticalAlignment="Center" 
                                            Foreground="{StaticResource TextPrimaryBrush}"
-                                           IsEnabled="{Binding IsApiKeyInputEnabled}"/>
+                                           IsEnabled="{Binding IsGeminiApiKeyInputEnabled}"/>
                                 <PasswordBox Grid.Row="1" Grid.Column="1" 
                                              x:Name="GeminiApiKeyBox"
                                              PasswordChar="•"
@@ -357,7 +374,21 @@
                                              Height="26"
                                              PasswordChanged="GeminiApiKeyBox_PasswordChanged"
                                              ToolTip="Required for Gemini provider"
-                                             IsEnabled="{Binding IsApiKeyInputEnabled}"/>
+                                             IsEnabled="{Binding IsGeminiApiKeyInputEnabled}"/>
+
+                                <TextBlock Grid.Row="2" Text="GCP API Key:" 
+                                           VerticalAlignment="Center" 
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           IsEnabled="{Binding IsGcpApiKeyInputEnabled}"/>
+                                <PasswordBox Grid.Row="2" Grid.Column="1" 
+                                             x:Name="GcpApiKeyBox"
+                                             PasswordChar="•"
+                                             VerticalAlignment="Center"
+                                             VerticalContentAlignment="Center"
+                                             Height="26"
+                                             PasswordChanged="GcpApiKeyBox_PasswordChanged"
+                                             ToolTip="Required for GCP provider"
+                                             IsEnabled="{Binding IsGcpApiKeyInputEnabled}"/>
                             </Grid>
                         </GroupBox>
 
