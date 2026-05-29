@@ -15,10 +15,6 @@ namespace QuickTranslate.ViewModels;
 
 public partial class PronunciationViewModel : ObservableObject, IDisposable
 {
-    public event EventHandler? RequestPlayFromView;
-    public event EventHandler? RequestPauseFromView;
-    public event EventHandler? RequestRestartFromView;
-
     private readonly IPronunciationService _pronunciationService;
     private readonly ISettingsService _settingsService;
     private readonly ILanguageMetadataService _languageService;
@@ -48,19 +44,20 @@ public partial class PronunciationViewModel : ObservableObject, IDisposable
 
     private string _detectedLanguageCode = Constants.Defaults.TargetLanguage;
 
-    [ObservableProperty]
-    private Uri? _audioUri;
+
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(PlayPauseCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RestartCommand))]
     private bool _isPlaying;
 
     [ObservableProperty]
     private bool _isVisible = false;
 
-    [ObservableProperty]
-    private bool _isStreamingMode;
+
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(RestartCommand))]
     private bool _isDownloadingChunks;
 
     [ObservableProperty]

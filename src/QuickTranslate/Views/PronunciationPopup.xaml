@@ -563,16 +563,6 @@
                     </Grid>
                 </Grid>
             </Border>
-                    
-            <!-- Hidden MediaElement for audio playback -->
-            <MediaElement x:Name="AudioPlayer"
-                          Grid.Row="2"
-                          LoadedBehavior="Manual"
-                          UnloadedBehavior="Stop"
-                          MediaOpened="AudioPlayer_MediaOpened"
-                          MediaEnded="AudioPlayer_MediaEnded"
-                          MediaFailed="AudioPlayer_MediaFailed"
-                          Visibility="Collapsed"/>
         </Grid>
     </Border>
 </Window>

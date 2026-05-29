@@ -45,7 +45,8 @@ public class NAudioStreamingPlayer : IStreamingAudioPlayer
         _bufferedWaveProvider = new BufferedWaveProvider(waveFormat)
         {
             BufferDuration = TimeSpan.FromMinutes(60), // Huge buffer (60 mins) to allow full pre-download
-            DiscardOnBufferOverflow = false // Block instead of discarding
+            DiscardOnBufferOverflow = false, // Block instead of discarding
+            ReadFully = false // Essential: tells NAudio to stop and fire PlaybackStopped when buffer runs empty
         };
 
         _waveOut = new WaveOutEvent();
@@ -161,7 +162,8 @@ public class NAudioStreamingPlayer : IStreamingAudioPlayer
         _bufferedWaveProvider = new BufferedWaveProvider(_lastWaveFormat)
         {
             BufferDuration = TimeSpan.FromMinutes(60),
-            DiscardOnBufferOverflow = false
+            DiscardOnBufferOverflow = false,
+            ReadFully = false
         };
         _waveOut = new WaveOutEvent();
         _waveOut.Init(_bufferedWaveProvider);
@@ -200,7 +202,8 @@ public class NAudioStreamingPlayer : IStreamingAudioPlayer
             _bufferedWaveProvider = new BufferedWaveProvider(_lastWaveFormat)
             {
                 BufferDuration = TimeSpan.FromMinutes(60),
-                DiscardOnBufferOverflow = false
+                DiscardOnBufferOverflow = false,
+                ReadFully = false
             };
 
             _waveOut = new WaveOutEvent();
@@ -290,9 +293,14 @@ public class NAudioStreamingPlayer : IStreamingAudioPlayer
         _isStreamingActive = false;
 
         // If the buffer already drained while we were still "streaming",
-        // the OnPlaybackStopped handler suppressed the event. Fire it now.
-        if (_bufferedWaveProvider != null && _bufferedWaveProvider.BufferedBytes == 0 && !_isPlaying)
+        // the OnPlaybackStopped handler suppressed the event and kept
+        // _isPlaying = true to avoid UI flicker. Now that streaming is
+        // done, check the actual WaveOut state to see if playback has
+        // already stopped (buffer underrun). If so, fire the event now.
+        bool actuallyPlaying = _waveOut != null && _waveOut.PlaybackState == PlaybackState.Playing;
+        if (!actuallyPlaying && _bufferedWaveProvider != null && _bufferedWaveProvider.BufferedBytes == 0)
         {
+            _isPlaying = false;
             PlaybackCompleted?.Invoke(this, EventArgs.Empty);
         }
     }

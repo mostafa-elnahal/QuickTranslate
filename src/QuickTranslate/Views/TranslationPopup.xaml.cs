@@ -37,26 +37,9 @@ public partial class TranslationPopup : Window
         _sizingService = sizingService;
         DataContext = _viewModel;
 
-        // Subscribe to property changes to detect when audio URI is ready
-        _viewModel.PropertyChanged += ViewModel_PropertyChanged;
     }
 
-    private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == nameof(_viewModel.PronunciationAudioUri) && _viewModel.PronunciationAudioUri != null)
-        {
-            // Audio URI is now set, trigger playback
-            try
-            {
-                PronunciationAudioPlayer.Source = _viewModel.PronunciationAudioUri;
-                PronunciationAudioPlayer.Play();
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Translation Popup audio error: {ex.Message}");
-            }
-        }
-    }
+
 
     /// <summary>
     /// Shows the window near the mouse cursor and starts translation
@@ -194,25 +177,5 @@ public partial class TranslationPopup : Window
         }
     }
 
-    #region Pronunciation Audio/Animation
 
-
-
-    private void PronunciationAudioPlayer_MediaOpened(object sender, RoutedEventArgs e)
-    {
-        // Auto-play when loaded via binding
-        PronunciationAudioPlayer.Play();
-    }
-
-    private void PronunciationAudioPlayer_MediaEnded(object sender, RoutedEventArgs e)
-    {
-        // No-op
-    }
-
-    private void PronunciationAudioPlayer_MediaFailed(object sender, ExceptionRoutedEventArgs e)
-    {
-        System.Diagnostics.Debug.WriteLine($"Pronunciation audio failed: {e.ErrorException?.Message}");
-    }
-
-    #endregion
 }

@@ -15,85 +15,61 @@ public partial class PronunciationViewModel
     [RelayCommand]
     private void PlayPause()
     {
-        if (IsStreamingMode)
+        if (_streamingPlayer == null) return;
+        if (_streamingPlayer.IsPlaying)
         {
-            if (_streamingPlayer == null) return;
-            if (_streamingPlayer.IsPlaying)
-            {
-                _streamingPlayer.Pause();
-                IsPlaying = false;
-            }
-            else if (_streamingPlayer.IsPaused)
-            {
-                _streamingPlayer.Resume();
-                IsPlaying = true;
-            }
-            else
-            {
-                Restart();
-            }
+            _streamingPlayer.Pause();
+            IsPlaying = false;
+        }
+        else if (_streamingPlayer.IsPaused)
+        {
+            _streamingPlayer.Resume();
+            IsPlaying = true;
         }
         else
         {
-            if (IsPlaying)
-            {
-                RequestPauseFromView?.Invoke(this, EventArgs.Empty);
-                IsPlaying = false;
-            }
-            else
-            {
-                RequestPlayFromView?.Invoke(this, EventArgs.Empty);
-                IsPlaying = true;
-            }
+            Restart();
         }
     }
 
     [RelayCommand(CanExecute = nameof(CanRestart))]
     private void Restart()
     {
-        if (IsStreamingMode)
+        if (_streamingPlayer != null)
         {
-            if (_streamingPlayer != null)
-            {
-                _streamingPlayer.Restart();
-                IsPlaying = true;
-            }
-        }
-        else
-        {
-            RequestRestartFromView?.Invoke(this, EventArgs.Empty);
+            _streamingPlayer.Restart();
             IsPlaying = true;
         }
     }
 
-    private bool CanRestart => IsStreamingMode ? (_streamingPlayer != null && !IsDownloadingChunks) : true;
+    private bool CanRestart => _streamingPlayer != null && !IsDownloadingChunks;
 
     #endregion
 
-    private async Task UpdateAudioUriAsync()
+    private Task UpdateAudioUriAsync()
     {
-        if (string.IsNullOrEmpty(OriginalText)) return;
+        if (string.IsNullOrEmpty(OriginalText)) return Task.CompletedTask;
 
         IsLoading = true;
         StatusMessage = string.Empty;
-        AudioUri = null;
         StopStreaming();
 
         try
         {
             int currentGen = _pronunciationGeneration;
 
-            if (_pronunciationService.SupportsStreaming)
-            {
-                IsStreamingMode = true;
-                _streamingPlayer = _audioPlayerFactory.CreatePlayer();
-                _streamingCts = new CancellationTokenSource();
-                _streamingPlayer.BeginStreaming();
+            _streamingPlayer = _audioPlayerFactory.CreatePlayer();
+            _streamingCts = new CancellationTokenSource();
+            _streamingPlayer.BeginStreaming();
 
                 _streamingPlayer.PlaybackCompleted += (s, e) =>
                 {
-                    IsPlaying = false;
-                    ClearWordHighlights();
+                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        IsPlaying = false;
+                        ClearWordHighlights();
+                        RestartCommand.NotifyCanExecuteChanged();
+                    });
                 };
 
                 var chunks = TextChunker.ChunkText(Words.ToList(), _pronunciationService.MaxChunkSize).ToList();
@@ -153,17 +129,6 @@ public partial class PronunciationViewModel
                         }
                     }
                 });
-            }
-            else
-            {
-                IsStreamingMode = false;
-                var result = await _pronunciationService.GetAudioUriAsync(OriginalText, _detectedLanguageCode, IsSlowMode);
-
-                if (_pronunciationGeneration != currentGen) return;
-
-                if (result.IsSuccess) AudioUri = result.Data;
-                else StatusMessage = result.Message;
-            }
         }
         catch (Exception ex)
         {
@@ -175,6 +140,8 @@ public partial class PronunciationViewModel
         {
             IsLoading = false;
         }
+
+        return Task.CompletedTask;
     }
 
     public void StopStreaming()

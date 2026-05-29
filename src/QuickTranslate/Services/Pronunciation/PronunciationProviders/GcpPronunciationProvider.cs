@@ -30,7 +30,7 @@ public class GcpPronunciationProvider : IPronunciationProvider, IDisposable
     private readonly ConcurrentDictionary<(string Text, bool SlowMode), string> _audioCache = new();
 
     public string Name => Constants.PronunciationProviders.Gcp;
-    public bool SupportsStreaming => false; // Start with batch-only; streaming can be added later
+    public bool SupportsStreaming => true;
     public int MaxChunkSize => 4500; // 5000 byte limit minus SSML overhead
 
     public GcpPronunciationProvider(ISettingsService settingsService)
@@ -136,7 +136,8 @@ public class GcpPronunciationProvider : IPronunciationProvider, IDisposable
                 },
                 audioConfig = new
                 {
-                    audioEncoding = "MP3"
+                    audioEncoding = "LINEAR16",
+                    sampleRateHertz = DefaultSampleRate
                 },
                 enableTimePointing = new[] { "SSML_MARK" }
             };
@@ -181,7 +182,7 @@ public class GcpPronunciationProvider : IPronunciationProvider, IDisposable
                 try { File.Delete(oldPath); } catch { /* ignore cleanup errors */ }
             }
 
-            var tempPath = Path.Combine(Path.GetTempPath(), $"gcp_tts_{Guid.NewGuid()}.mp3");
+            var tempPath = Path.Combine(Path.GetTempPath(), $"gcp_tts_{Guid.NewGuid()}.wav");
             await File.WriteAllBytesAsync(tempPath, audioBytes);
             _audioCache[cacheKey] = tempPath;
 

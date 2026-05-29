@@ -103,7 +103,7 @@ public partial class PronunciationViewModel
                 continue;
             }
 
-            var player = IsStreamingMode ? StreamingPlayer : null;
+            var player = StreamingPlayer;
             TimeSpan currentPos = player?.CurrentPosition ?? CurrentPosition;
 
             double elapsedMs = currentPos.TotalMilliseconds;
@@ -123,7 +123,7 @@ public partial class PronunciationViewModel
             {
                 // Find which chunk this word belongs to
                 int activeChunkIndex = -1;
-                if (IsStreamingMode && _chunkWordRanges != null)
+                if (_chunkWordRanges != null)
                 {
                     activeChunkIndex = _chunkWordRanges.FindIndex(r => activeWordIndex >= r.StartIndex && activeWordIndex < r.EndIndex);
                 }

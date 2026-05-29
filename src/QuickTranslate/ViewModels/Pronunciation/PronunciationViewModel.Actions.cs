@@ -70,12 +70,11 @@ public partial class PronunciationViewModel
             IsSlowMode = false;
             OnPropertyChanged(nameof(IsSlowMode));
 
-            if (data.AudioUri != null)
+            if (data.Timepoints != null)
             {
-                AudioUri = data.AudioUri;
                 _exactTimepoints = data.Timepoints;
             }
-            else await UpdateAudioUriAsync();
+            await UpdateAudioUriAsync();
         }
         catch (Exception ex)
         {
@@ -96,7 +95,6 @@ public partial class PronunciationViewModel
         Words.Clear();
         _chunkWordRanges.Clear();
         _wordAnimationCts?.Cancel();
-        AudioUri = null;
         _exactTimepoints = null;
         PhoneticsDisplay = string.Empty;
         IsPlaying = false;

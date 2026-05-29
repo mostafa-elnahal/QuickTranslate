@@ -240,16 +240,7 @@
                         </Grid>
                     </Border>
                     
-                    <!-- Hidden MediaElement for pronunciation audio playback -->
-                    <MediaElement x:Name="PronunciationAudioPlayer"
-                                  Source="{Binding DataContext.PronunciationAudioUri, RelativeSource={RelativeSource AncestorType=Window}}"
-                                  LoadedBehavior="Manual"
-                                  UnloadedBehavior="Stop"
-                                  MediaOpened="PronunciationAudioPlayer_MediaOpened"
-                                  MediaEnded="PronunciationAudioPlayer_MediaEnded"
-                                  MediaFailed="PronunciationAudioPlayer_MediaFailed"
-                                  Visibility="Collapsed"/>
-                    
+
                     <!-- Error Message -->
                     <TextBlock Text="{Binding ErrorMessage, Mode=OneWay}"
                                Foreground="LightCoral"

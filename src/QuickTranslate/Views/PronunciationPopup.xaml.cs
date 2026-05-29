@@ -48,23 +48,6 @@ public partial class PronunciationPopup : Window
         };
         _progressTimer.Tick += ProgressTimer_Tick;
 
-        // Subscribe to ViewModel events for playback control
-        _viewModel.RequestPlayFromView += (s, e) =>
-        {
-            AudioPlayer.Play();
-            _progressTimer.Start();
-        };
-        _viewModel.RequestPauseFromView += (s, e) =>
-        {
-            AudioPlayer.Pause();
-            _progressTimer.Stop();
-        };
-        _viewModel.RequestRestartFromView += (s, e) =>
-        {
-            AudioPlayer.Stop();
-            AudioPlayer.Play();
-            _progressTimer.Start();
-        };
 
         // Sync timer with IsPlaying property for streaming support
         _viewModel.PropertyChanged += (s, e) =>
@@ -110,97 +93,6 @@ public partial class PronunciationPopup : Window
             return;
         }
 
-        // 6. Auto-play audio after data is ready
-        if (!_viewModel.IsStreamingMode)
-        {
-            PlayAudio();
-        }
-    }
-
-    private void PlayAudio()
-    {
-        System.Diagnostics.Debug.WriteLine($"PlayAudio called. AudioUri: {_viewModel?.AudioUri}");
-
-        if (_viewModel?.AudioUri == null)
-        {
-            System.Diagnostics.Debug.WriteLine("AudioUri is null, cannot play");
-            return;
-        }
-
-        try
-        {
-            // Show loading spinner while buffering/loading media
-            _viewModel.IsLoading = true;
-            _viewModel.StatusMessage = string.Empty; // Clear previous errors
-
-            // Reset position to allow replay
-            AudioPlayer.Position = TimeSpan.Zero;
-
-            // Only set Source if it changed (or if null) to avoid unnecessary reloading
-            // But if we want to ensure it works, setting it is safer usually, unless it causes lag.
-            // However, the issue is likely position not creating a re-trigger.
-            // Let's set Source AND Position.
-            if (AudioPlayer.Source != _viewModel.AudioUri)
-            {
-                AudioPlayer.Source = _viewModel.AudioUri;
-            }
-
-            // Set speed (always normal playback, as source file handles slowness)
-            AudioPlayer.SpeedRatio = 1.0;
-
-            System.Diagnostics.Debug.WriteLine($"Playing audio: {_viewModel.AudioUri}, SpeedRatio: {AudioPlayer.SpeedRatio}");
-            AudioPlayer.Play();
-            _viewModel.IsPlaying = true;
-            _progressTimer.Start();
-
-            // Trigger animation if media is already loaded (MediaOpened won't fire)
-            if (AudioPlayer.NaturalDuration.HasTimeSpan)
-            {
-                // If it's already ready, clear loading immediately
-                _viewModel.IsLoading = false;
-                StartAnimation();
-            }
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"Audio playback error: {ex.Message}");
-            _viewModel.IsPlaying = false;
-            _viewModel.IsLoading = false;
-            _viewModel.StatusMessage = "Playback Error";
-        }
-    }
-
-    // Removed StartKaraokeAnimation / ResetKaraokeAnimation
-
-    private void ResetAnimation()
-    {
-        // Cancel any running animation in VM if needed (VM handles logic via IsPlaying flag)
-        foreach (var s in _viewModel.Syllables) s.IsActive = false;
-    }
-
-    private async void StartAnimation()
-    {
-        if (_viewModel == null) return;
-
-        // Get audio duration
-        TimeSpan duration = AudioPlayer.NaturalDuration.HasTimeSpan
-            ? AudioPlayer.NaturalDuration.TimeSpan
-            : TimeSpan.FromSeconds(1.5);
-
-        // Adjust for speed ratio (now always 1.0 since we use server-side slowing)
-        double ratio = 1.0;
-
-        // Effective duration is longer if slower
-        TimeSpan effectiveDuration = duration / ratio;
-
-        if (_viewModel.IsSingleWord)
-        {
-            await _viewModel.AnimateSyllablesAsync(effectiveDuration);
-        }
-        else
-        {
-            await _viewModel.AnimateWordsAsync(effectiveDuration);
-        }
     }
 
     #region Event Handlers
@@ -249,7 +141,6 @@ public partial class PronunciationPopup : Window
 
     private void CloseButton_Click(object sender, RoutedEventArgs e)
     {
-        AudioPlayer.Stop();
         _viewModel.HideWindow();
     }
 
@@ -257,37 +148,12 @@ public partial class PronunciationPopup : Window
     {
         if (_viewModel == null || _isDraggingSlider) return;
 
-        if (_viewModel.IsStreamingMode)
-        {
-            if (_viewModel.StreamingPlayer != null)
-            {
-                _isUpdatingFromTimer = true;
-                _viewModel.TotalDuration = _viewModel.StreamingPlayer.TotalDuration;
-                _viewModel.CurrentPosition = _viewModel.StreamingPlayer.CurrentPosition;
-                _isUpdatingFromTimer = false;
-            }
-        }
-        else if (AudioPlayer.Source != null && AudioPlayer.NaturalDuration.HasTimeSpan)
+        if (_viewModel.StreamingPlayer != null)
         {
             _isUpdatingFromTimer = true;
-            _viewModel.TotalDuration = AudioPlayer.NaturalDuration.TimeSpan;
-            _viewModel.CurrentPosition = AudioPlayer.Position;
+            _viewModel.TotalDuration = _viewModel.StreamingPlayer.TotalDuration;
+            _viewModel.CurrentPosition = _viewModel.StreamingPlayer.CurrentPosition;
             _isUpdatingFromTimer = false;
-
-            // Auto-stop if we reach the end (MediaEnded sometimes fails to fire if very short)
-            if (AudioPlayer.Position >= AudioPlayer.NaturalDuration.TimeSpan)
-            {
-                if (_viewModel.IsPlaying)
-                {
-                    AudioPlayer.Stop();
-                    _viewModel.IsPlaying = false;
-
-                    // Reset to start
-                    _isUpdatingFromTimer = true;
-                    _viewModel.CurrentPosition = TimeSpan.Zero;
-                    _isUpdatingFromTimer = false;
-                }
-            }
         }
     }
 
@@ -308,14 +174,7 @@ public partial class PronunciationPopup : Window
                 TimeSpan newPos = TimeSpan.FromSeconds(slider.Value);
                 if (newPos > _viewModel.TotalDuration) newPos = _viewModel.TotalDuration;
 
-                if (_viewModel.IsStreamingMode)
-                {
-                    _viewModel.StreamingPlayer?.SetPosition(newPos);
-                }
-                else
-                {
-                    AudioPlayer.Position = newPos;
-                }
+                _viewModel.StreamingPlayer?.SetPosition(newPos);
             }
         }
     }
@@ -330,17 +189,9 @@ public partial class PronunciationPopup : Window
             // Limit to duration
             if (newPos > _viewModel.TotalDuration) newPos = _viewModel.TotalDuration;
 
-            if (_viewModel.IsStreamingMode)
+            if (_viewModel.StreamingPlayer != null)
             {
-                if (_viewModel.StreamingPlayer != null)
-                {
-                    _viewModel.StreamingPlayer.SetPosition(newPos);
-                }
-            }
-            else
-            {
-                // Update audio
-                AudioPlayer.Position = newPos;
+                _viewModel.StreamingPlayer.SetPosition(newPos);
             }
 
             // Update VM immediately for smooth UI
@@ -357,68 +208,7 @@ public partial class PronunciationPopup : Window
         }
     }
 
-    private void AudioPlayer_MediaOpened(object sender, RoutedEventArgs e)
-    {
-        _viewModel.IsLoading = false;
-        if (AudioPlayer.NaturalDuration.HasTimeSpan)
-        {
-            _viewModel.TotalDuration = AudioPlayer.NaturalDuration.TimeSpan;
-        }
-        StartAnimation();
-    }
 
-    private void AudioPlayer_MediaEnded(object sender, RoutedEventArgs e)
-    {
-        _viewModel.IsPlaying = false;
-        _progressTimer.Stop();
-
-        // Reset to start so it's ready to play again
-        AudioPlayer.Stop();
-
-        _isUpdatingFromTimer = true;
-        _viewModel.CurrentPosition = TimeSpan.Zero;
-        _isUpdatingFromTimer = false;
-    }
-
-    private void AudioPlayer_MediaFailed(object sender, ExceptionRoutedEventArgs e)
-    {
-        System.Diagnostics.Debug.WriteLine($"Media failed: {e.ErrorException?.Message}");
-        _viewModel.IsPlaying = false;
-        _viewModel.IsLoading = false;
-        _progressTimer.Stop();
-
-        // Show friendly error in status bar
-        if (_viewModel != null)
-        {
-            _viewModel.StatusMessage = InterpretError(e.ErrorException);
-        }
-    }
-
-    private string InterpretError(Exception? ex)
-    {
-        if (ex == null) return "Audio playback failed.";
-
-        var msg = ex.Message;
-
-        // Network / DNS errors
-        if (msg.Contains("remote name could not be resolved") || msg.Contains("connect to the remote server"))
-            return "No Internet Connection.";
-
-        // HTTP Status Codes
-        if (msg.Contains("(404)")) return "Pronunciation not available.";
-        if (msg.Contains("(429)")) return "Google Limit Reached (Try later).";
-        if (msg.Contains("(503)")) return "Service Unavailable.";
-        if (msg.Contains("(403)")) return "Access Denied.";
-
-        // Media Element cryptic errors
-        if (msg.Contains("HRESULT") || msg.Contains("0xC00D"))
-            return "Audio Unavailable (Format/Network).";
-
-        // Fallback: shorten very long messages
-        if (msg.Length > 50) return msg.Substring(0, 47) + "...";
-
-        return msg;
-    }
 
     #endregion
 }

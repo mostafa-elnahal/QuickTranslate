@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using QuickTranslate.Services;
+using QuickTranslate.Services.Audio;
 using QuickTranslate.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -38,8 +39,6 @@ public partial class PopupViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _isPronunciationLoading;
 
-    [ObservableProperty]
-    private Uri? _pronunciationAudioUri;
 
     /// <summary>
     /// Generation counter to track translation sessions.
@@ -54,15 +53,21 @@ public partial class PopupViewModel : ObservableObject, IDisposable
 
     private System.Threading.CancellationTokenSource? _translationCts;
 
+    private readonly IStreamingAudioPlayerFactory _playerFactory;
+    private IStreamingAudioPlayer? _player;
+
     public PopupViewModel(
         ITranslationService translationService,
         ISettingsService settingsService,
         IPronunciationService pronunciationService,
-        IClipboardService clipboardService)
+        IClipboardService clipboardService,
+        IStreamingAudioPlayerFactory streamingAudioPlayerFactory)
     {
         _translationService = translationService;
         _settingsService = settingsService;
         _pronunciationService = pronunciationService;
+
+        _playerFactory = streamingAudioPlayerFactory;
 
         Header = new PopupHeaderViewModel(clipboardService);
 
@@ -83,26 +88,38 @@ public partial class PopupViewModel : ObservableObject, IDisposable
         if (IsPronunciationLoading) return;
 
         IsPronunciationLoading = true;
-        PronunciationAudioUri = null;
 
         try
         {
             var text = CurrentTranslation.OriginalText.Trim();
             var langCode = CurrentTranslation.SourceLanguageCode;
 
-            var result = await _pronunciationService.GetAudioUriAsync(text, langCode, false);
+            // Dispose previous player to avoid stale PCM data accumulation
+            _player?.Stop();
+            _player?.Dispose();
+            _player = _playerFactory.CreatePlayer();
 
-            if (result.IsSuccess && result.Data != null)
+            _player.BeginStreaming();
+            var result = await _pronunciationService.StreamAudioAsync(text, langCode, false, _player);
+            _player.EndStreaming();
+
+            if (!result.IsSuccess)
             {
-                PronunciationAudioUri = result.Data;
+                IsPronunciationLoading = false;
+                return;
             }
+
+            // Await playback completion. _player.IsPlaying becomes false when 
+            // NAudio finishes playing and the buffer is empty (ReadFully=false).
+            while (_player != null && _player.IsPlaying)
+            {
+                await Task.Delay(100);
+            }
+            IsPronunciationLoading = false;
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Pronunciation Play Area Error: {ex.Message}");
-        }
-        finally
-        {
             IsPronunciationLoading = false;
         }
     }
@@ -221,6 +238,8 @@ public partial class PopupViewModel : ObservableObject, IDisposable
         {
             disposable.Dispose();
         }
+
+        _player?.Dispose();
     }
 
     #endregion
