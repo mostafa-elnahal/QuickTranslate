@@ -106,4 +106,20 @@ public class AppSettings
     /// Show pronunciation section for single-word translations.
     /// </summary>
     public bool ShowPronunciation { get; set; } = true;
+
+    /// <summary>
+    /// The hotkey combination string for OCR text recognition (e.g., "Ctrl+Shift+O").
+    /// </summary>
+    public string OcrHotkey { get; set; } = "Ctrl+Shift+O";
+
+    /// <summary>
+    /// The OCR language code (e.g., "en-US", "fr-FR").
+    /// </summary>
+    public string OcrLanguage { get; set; } = "en-US";
+
+    /// <summary>
+    /// Whether to show a floating toolbar icon on text selection instead of
+    /// opening the translation popup directly.
+    /// </summary>
+    public bool ShowSelectionToolbar { get; set; } = true;
 }

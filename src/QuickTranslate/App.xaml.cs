@@ -2,7 +2,9 @@ using System;
 using System.Threading.Tasks;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
+using QuickTranslate.Models;
 using QuickTranslate.Services;
+using QuickTranslate.Services.Input;
 using QuickTranslate.ViewModels;
 using QuickTranslate.Views;
 using QuickTranslate.Services.Providers;
@@ -42,6 +44,12 @@ public partial class App : Application
         trayIconService.Initialize();
         trayIconService.ExitRequested += (s, args) => Shutdown();
         trayIconService.SettingsRequested += (s, args) => OpenSettingsWindow();
+        trayIconService.OcrRequested += async (s, args) => await HandleOcrRequestAsync();
+
+        // Subscribe to floating toolbar events
+        var toolbarVm = _serviceProvider.GetRequiredService<FloatingToolbarViewModel>();
+        toolbarVm.TranslateRequested += OnToolbarTranslateRequested;
+        toolbarVm.PronounceRequested += OnToolbarPronounceRequested;
 
         // Register hotkeys
         RegisterGlobalHotkeys();
@@ -49,6 +57,14 @@ public partial class App : Application
         // Listen for setting changes
         var settingsService = _serviceProvider.GetRequiredService<ISettingsService>();
         settingsService.SettingsChanged += OnSettingsChanged;
+
+        // Initialize text selection monitor
+        var selectionMonitor = _serviceProvider.GetRequiredService<ITextSelectionMonitorService>();
+        selectionMonitor.TextSelected += OnTextSelected;
+        if (settingsService.Settings.ShowSelectionToolbar)
+        {
+            selectionMonitor.Start();
+        }
     }
 
     private void ConfigureServices(IServiceCollection services)
@@ -62,6 +78,17 @@ public partial class App : Application
         services.AddSingleton<ITranslationService, GTranslateService>();
         services.AddSingleton<IDialogService, DialogService>();
         services.AddSingleton<ISyllableService, SyllableService>();
+
+        // OCR Services
+        services.AddSingleton<IScreenCaptureService, ScreenCaptureService>();
+        services.AddSingleton<IOcrService, WindowsMediaOcrService>();
+
+        // UI Automation
+        services.AddSingleton<IUiAutomationService, UiAutomationService>();
+
+        // Text Selection Monitor
+        services.AddSingleton<IGlobalInputHookService, GlobalInputHookService>();
+        services.AddSingleton<ITextSelectionMonitorService, TextSelectionMonitorService>();
 
         // Conditional Sizing Service (factory pattern for legacy support if needed, but here simple)
         services.AddSingleton<IWindowSizingService>(sp => 
@@ -94,11 +121,13 @@ public partial class App : Application
         // ViewModels
         services.AddSingleton<PopupViewModel>();
         services.AddSingleton<PronunciationViewModel>();
+        services.AddSingleton<FloatingToolbarViewModel>();
         services.AddTransient<SettingsViewModel>();
 
         // Windows/Views
         services.AddSingleton<TranslationPopup>();
         services.AddSingleton<PronunciationPopup>();
+        services.AddSingleton<FloatingToolbarWindow>();
     }
 
     private void OnSettingsChanged(object? sender, EventArgs e)
@@ -108,6 +137,22 @@ public partial class App : Application
             var settingsService = _serviceProvider.GetRequiredService<ISettingsService>();
             RegisterTranslationHotkey(settingsService.Settings.Hotkey);
             RegisterPronunciationHotkey(settingsService.Settings?.PronunciationHotkey ?? "Ctrl+Shift+P");
+            RegisterOcrHotkey(settingsService.Settings?.OcrHotkey ?? Constants.Defaults.OcrHotkey);
+
+            // Update OCR language
+            var ocrService = _serviceProvider.GetRequiredService<IOcrService>();
+            ocrService.CurrentLanguageCode = settingsService.Settings?.OcrLanguage ?? Constants.Defaults.OcrLanguage;
+
+            // Update Text Selection Monitor State
+            var selectionMonitor = _serviceProvider.GetRequiredService<ITextSelectionMonitorService>();
+            if (settingsService.Settings.ShowSelectionToolbar)
+            {
+                selectionMonitor.Start();
+            }
+            else
+            {
+                selectionMonitor.Stop();
+            }
         }
     }
 
@@ -149,6 +194,7 @@ public partial class App : Application
 
     private const int HOTKEY_ID_TRANSLATE = 1;
     private const int HOTKEY_ID_PRONUNCIATION = 2;
+    private const int HOTKEY_ID_OCR = 3;
 
     private void RegisterGlobalHotkeys()
     {
@@ -163,6 +209,13 @@ public partial class App : Application
 
         // Register Pronunciation hotkey
         RegisterPronunciationHotkey(settingsService.Settings?.PronunciationHotkey ?? "Ctrl+Shift+P");
+
+        // Register OCR hotkey
+        RegisterOcrHotkey(settingsService.Settings?.OcrHotkey ?? Constants.Defaults.OcrHotkey);
+
+        // Initialize OCR language
+        var ocrService = _serviceProvider.GetRequiredService<IOcrService>();
+        ocrService.CurrentLanguageCode = settingsService.Settings?.OcrLanguage ?? Constants.Defaults.OcrLanguage;
     }
 
     private void RegisterTranslationHotkey(string hotkey)
@@ -199,6 +252,23 @@ public partial class App : Application
         }
     }
 
+    private void RegisterOcrHotkey(string hotkey)
+    {
+        if (_serviceProvider == null) return;
+        var hotkeyService = _serviceProvider.GetRequiredService<IHotkeyService>();
+        var translationPopup = _serviceProvider.GetRequiredService<TranslationPopup>();
+
+        bool success = hotkeyService.Register(HOTKEY_ID_OCR, hotkey, translationPopup);
+        if (!success)
+        {
+            MessageBox.Show(
+                $"Failed to register OCR hotkey '{hotkey}'. It may be in use by another application.",
+                "QuickTranslate",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+    }
+
     #endregion
 
     /// <summary>
@@ -207,9 +277,21 @@ public partial class App : Application
     private async void OnHotkeyPressed(object? sender, int hotkeyId)
     {
         if (_serviceProvider == null) return;
-        var clipboardService = _serviceProvider.GetRequiredService<IClipboardService>();
 
+        // OCR uses screen capture, not clipboard text selection.
+        // Skip the clipboard pipeline entirely to avoid injecting
+        // keystrokes (Ctrl+C) into the foreground application.
+        if (hotkeyId == HOTKEY_ID_OCR)
+        {
+            await HandleOcrRequestAsync();
+            return;
+        }
+
+        var clipboardService = _serviceProvider.GetRequiredService<IClipboardService>();
         string capturedText = await clipboardService.CaptureSelectionAsync();
+
+        if (string.IsNullOrWhiteSpace(capturedText))
+            return;
 
         var translationViewModel = _serviceProvider.GetRequiredService<PopupViewModel>();
         var pronunciationViewModel = _serviceProvider.GetRequiredService<PronunciationViewModel>();
@@ -235,6 +317,83 @@ public partial class App : Application
                     pronunciationPopup.ShowAndPronounce(capturedText);
                 }
                 break;
+        }
+    }
+
+    /// <summary>
+    /// Handles text selection detected by the global mouse hook.
+    /// Spawns the floating toolbar under the cursor.
+    /// </summary>
+    private void OnTextSelected(string text)
+    {
+        if (_serviceProvider == null || string.IsNullOrWhiteSpace(text)) return;
+        
+        var toolbarWindow = _serviceProvider.GetRequiredService<FloatingToolbarWindow>();
+        toolbarWindow.ShowToolbar(text, ToolbarDisplayMode.Selection);
+    }
+
+    /// <summary>
+    /// Handles the Translate action from the floating toolbar.
+    /// </summary>
+    private void OnToolbarTranslateRequested(string text)
+    {
+        if (_serviceProvider == null) return;
+
+        var pronunciationViewModel = _serviceProvider.GetRequiredService<PronunciationViewModel>();
+        pronunciationViewModel.HideWindow();
+
+        var translationPopup = _serviceProvider.GetRequiredService<TranslationPopup>();
+        translationPopup.ShowAndTranslate(text);
+    }
+
+    /// <summary>
+    /// Handles the Pronounce action from the floating toolbar.
+    /// </summary>
+    private void OnToolbarPronounceRequested(string text)
+    {
+        if (_serviceProvider == null || string.IsNullOrWhiteSpace(text)) return;
+
+        var translationViewModel = _serviceProvider.GetRequiredService<PopupViewModel>();
+        translationViewModel.HideWindow();
+
+        var pronunciationPopup = _serviceProvider.GetRequiredService<PronunciationPopup>();
+        pronunciationPopup.ShowAndPronounce(text);
+    }
+
+    /// <summary>
+    /// Handles OCR request from hotkey or tray menu.
+    /// Captures text via OCR and shows it in the translation popup.
+    /// </summary>
+    private async Task HandleOcrRequestAsync()
+    {
+        if (_serviceProvider == null) return;
+
+        var ocrService = _serviceProvider.GetRequiredService<IOcrService>();
+        var translationPopup = _serviceProvider.GetRequiredService<TranslationPopup>();
+        var translationViewModel = _serviceProvider.GetRequiredService<PopupViewModel>();
+
+        try
+        {
+            string? capturedText = await ocrService.CaptureAndRecognizeAsync();
+
+            if (!string.IsNullOrWhiteSpace(capturedText))
+            {
+                // Close any other popups
+                var pronunciationViewModel = _serviceProvider.GetRequiredService<PronunciationViewModel>();
+                pronunciationViewModel.HideWindow();
+
+                // Show translation popup with OCR text
+                translationPopup.ShowAndTranslate(capturedText);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"OCR failed: {ex.Message}");
+            MessageBox.Show(
+                $"Failed to perform text recognition.\nError: {ex.Message}",
+               "QuickTranslate - OCR Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 }

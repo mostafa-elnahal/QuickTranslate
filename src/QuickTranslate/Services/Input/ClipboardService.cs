@@ -34,11 +34,16 @@ public class ClipboardService : IClipboardService
 
         // 2. Clear & Copy selection
         ClipboardHelper.ClearSafe();
+        
+        // Failsafe wait
+        Thread.Sleep(50);
+        
         ClipboardHelper.SendCopyCommand();
 
         // 3. Wait for clipboard to populate
         // GetTextWithTimeout handles retries and exceptions internally
         string capturedText = ClipboardHelper.GetTextWithTimeout();
+
         if (!string.IsNullOrEmpty(capturedText))
         {
             Log($"Captured: {capturedText}");
@@ -95,11 +100,7 @@ public class ClipboardService : IClipboardService
 
     private void Log(string message)
     {
-        try
-        {
-            System.IO.File.AppendAllText("debug.log", $"{DateTime.Now}: {message}{Environment.NewLine}");
-        }
-        catch { }
+        DebugLog.Write($"[ClipboardService] {message}");
     }
 
     public void SetText(string text)

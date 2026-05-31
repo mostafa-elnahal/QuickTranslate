@@ -1,0 +1,65 @@
+<Window x:Class="QuickTranslate.Views.ScreenSelectionOverlay"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Screen Selection"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="False"
+        ShowInTaskbar="False"
+        Cursor="Cross"
+        ResizeMode="NoResize"
+        WindowStartupLocation="Manual">
+
+    <Window.Resources>
+        <DropShadowEffect x:Key="DropShadowEffect" BlurRadius="4" ShadowDepth="2" Color="Black" Opacity="0.5"/>
+    </Window.Resources>
+
+    <Grid>
+        <!-- Layer 1: Frozen screenshot (no clip - visible everywhere) -->
+        <Image x:Name="BackgroundImage"
+               Stretch="UniformToFill"
+               IsHitTestVisible="False"/>
+
+        <!-- Layer 2: Dark overlay with cutout clip (auto-fills via Grid) -->
+        <Grid IsHitTestVisible="False">
+            <Grid.Clip>
+                <CombinedGeometry GeometryCombineMode="Exclude">
+                    <CombinedGeometry.Geometry1>
+                        <RectangleGeometry x:Name="FullWindow"/>
+                    </CombinedGeometry.Geometry1>
+                    <CombinedGeometry.Geometry2>
+                        <RectangleGeometry x:Name="ClippingGeometry"/>
+                    </CombinedGeometry.Geometry2>
+                </CombinedGeometry>
+            </Grid.Clip>
+            <Rectangle x:Name="OverlayRect" Fill="#40000000"/>
+        </Grid>
+
+        <!-- Layer 3: Interactive canvas (no clip - border and text are visible) -->
+        <Canvas x:Name="RegionClickCanvas" Background="Transparent"
+                ClipToBounds="True"
+                MouseLeftButtonDown="RegionClickCanvas_MouseDown"
+                MouseMove="RegionClickCanvas_MouseMove"
+                MouseLeftButtonUp="RegionClickCanvas_MouseUp">
+
+            <!-- Selection border -->
+            <Border x:Name="SelectionBorder"
+                    BorderBrush="#FF2196F3"
+                    BorderThickness="2"
+                    Background="#202196F3"
+                    CornerRadius="2"
+                    IsHitTestVisible="False"
+                    Visibility="Collapsed"/>
+
+            <!-- Instruction text -->
+            <TextBlock x:Name="InstructionText"
+                       Text="Draw a rectangle to select text for OCR"
+                       Foreground="White"
+                       FontSize="14"
+                       IsHitTestVisible="False"
+                       Effect="{StaticResource DropShadowEffect}"
+                       Canvas.Top="20"/>
+        </Canvas>
+    </Grid>
+</Window>

@@ -2,9 +2,11 @@ using System;
 using System.Threading.Tasks;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Linq;
 using System.Windows.Input;
 using QuickTranslate.Models;
 using QuickTranslate.Services;
+using QuickTranslate.Services.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -18,6 +20,7 @@ public partial class SettingsViewModel : ObservableObject
     private readonly ISettingsService _settingsService;
     private readonly IDialogService _dialogService;
     private readonly ITranslationService _translationService;
+    private readonly IOcrService _ocrService;
 
     [ObservableProperty]
     private string _selectedCategory = "Basics";
@@ -42,6 +45,12 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty]
     private string _pronunciationHotkey = "Ctrl+Shift+P";
+
+    [ObservableProperty]
+    private string _ocrHotkey = Constants.Defaults.OcrHotkey;
+
+    [ObservableProperty]
+    private OcrLanguage? _selectedOcrLanguage;
 
     [ObservableProperty]
     private double _fontSize = 18;
@@ -70,7 +79,7 @@ public partial class SettingsViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(SaveCommand))]
     private bool _isDirty = false;
 
-    private static readonly ObservableCollection<string> StaticCategories = new() { "Basics", "Hotkeys", "Languages", "Appearance", "Pronunciation", "About" };
+    private static readonly ObservableCollection<string> StaticCategories = new() { "Basics", "Hotkeys", "Languages", "Appearance", "Pronunciation", "OCR", "About" };
     private static readonly ObservableCollection<string> StaticProviders = new() { Constants.TranslationProviders.Google, Constants.TranslationProviders.Bing, Constants.TranslationProviders.Yandex };
     private static readonly ObservableCollection<string> StaticFontFamilies = new() { "Segoe UI", "Calibri", "Arial", "Consolas", "Georgia" };
     private static readonly ObservableCollection<string> StaticFontWeights = new() { "Light", "Normal", "Medium", "SemiBold", "Bold" };
@@ -81,13 +90,12 @@ public partial class SettingsViewModel : ObservableObject
         PronunciationProviderInfo.Create(Constants.PronunciationProviders.Gcp)
     };
 
-    public SettingsViewModel(ISettingsService settingsService, IDialogService dialogService, ITranslationService translationService)
+    public SettingsViewModel(ISettingsService settingsService, IDialogService dialogService, ITranslationService translationService, IOcrService ocrService)
     {
         _settingsService = settingsService;
         _dialogService = dialogService;
         _translationService = translationService;
-
-        LoadFromSettings();
+        _ocrService = ocrService;
 
         Categories = StaticCategories;
         AvailableProviders = StaticProviders;
@@ -95,12 +103,16 @@ public partial class SettingsViewModel : ObservableObject
         AvailableFontFamilies = StaticFontFamilies;
         AvailableFontWeights = StaticFontWeights;
         AvailableLanguages = new ObservableCollection<LanguageOption>(_translationService.GetSupportedLanguages());
+        AvailableOcrLanguages = new ObservableCollection<OcrLanguage>(_ocrService.GetAvailableLanguages());
+        
+        LoadFromSettings();
     }
 
     #region Properties
 
     public ObservableCollection<string> Categories { get; }
     public ObservableCollection<LanguageOption> AvailableLanguages { get; }
+    public ObservableCollection<OcrLanguage> AvailableOcrLanguages { get; }
     public ObservableCollection<string> AvailableProviders { get; }
     public ObservableCollection<string> AvailableFontFamilies { get; }
     public ObservableCollection<string> AvailableFontWeights { get; }
@@ -159,6 +171,8 @@ public partial class SettingsViewModel : ObservableObject
         _settingsService.Settings.DefaultProvider = DefaultProvider;
         _settingsService.Settings.Hotkey = Hotkey;
         _settingsService.Settings.PronunciationHotkey = PronunciationHotkey;
+        _settingsService.Settings.OcrHotkey = OcrHotkey;
+        _settingsService.Settings.OcrLanguage = SelectedOcrLanguage?.Code ?? Constants.Defaults.OcrLanguage;
         _settingsService.Settings.FontSize = FontSize;
         _settingsService.Settings.FontFamily = FontFamily;
         _settingsService.Settings.FontWeight = FontWeight;
@@ -189,6 +203,8 @@ public partial class SettingsViewModel : ObservableObject
         DefaultProvider = settings.DefaultProvider;
         Hotkey = settings.Hotkey;
         PronunciationHotkey = settings.PronunciationHotkey;
+        OcrHotkey = settings.OcrHotkey;
+        SelectedOcrLanguage = AvailableOcrLanguages.FirstOrDefault(l => l.Code == settings.OcrLanguage);
         FontSize = settings.FontSize;
         FontFamily = settings.FontFamily;
         FontWeight = settings.FontWeight;

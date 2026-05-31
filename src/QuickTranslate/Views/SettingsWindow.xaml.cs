@@ -83,6 +83,22 @@ public partial class SettingsWindow : Window
         }
     }
 
+    private void EditOcrHotkey_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is SettingsViewModel vm)
+        {
+            var dialog = new HotkeyEditorDialog(vm.OcrHotkey, "OCR Text Recognition")
+            {
+                Owner = this
+            };
+
+            if (dialog.ShowDialog() == true && dialog.ResultHotkey != null)
+            {
+                vm.OcrHotkey = dialog.ResultHotkey;
+            }
+        }
+    }
+
     private void GeminiApiKeyBox_PasswordChanged(object sender, RoutedEventArgs e)
     {
         if (DataContext is SettingsViewModel vm)

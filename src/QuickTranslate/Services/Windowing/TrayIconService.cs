@@ -13,6 +13,7 @@ public class TrayIconService : ITrayIconService
 
     public event EventHandler? ExitRequested;
     public event EventHandler? SettingsRequested;
+    public event EventHandler? OcrRequested;
 
     public void Initialize()
     {
@@ -46,12 +47,17 @@ public class TrayIconService : ITrayIconService
 
         var contextMenu = new ContextMenuStrip();
 
+        var ocrItem = new ToolStripMenuItem("OCR Text");
+        ocrItem.Click += (s, e) => OcrRequested?.Invoke(this, EventArgs.Empty);
+
         var settingsItem = new ToolStripMenuItem("Settings...");
         settingsItem.Click += (s, e) => SettingsRequested?.Invoke(this, EventArgs.Empty);
 
         var exitItem = new ToolStripMenuItem("Exit");
         exitItem.Click += (s, e) => ExitRequested?.Invoke(this, EventArgs.Empty);
 
+        contextMenu.Items.Add(ocrItem);
+        contextMenu.Items.Add(new ToolStripSeparator());
         contextMenu.Items.Add(settingsItem);
         contextMenu.Items.Add(new ToolStripSeparator());
         contextMenu.Items.Add(exitItem);

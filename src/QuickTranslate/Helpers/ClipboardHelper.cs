@@ -16,6 +16,12 @@ namespace QuickTranslate.Helpers;
 /// </summary>
 internal static class ClipboardHelper
 {
+    /// <summary>
+    /// Unique tag set in dwExtraInfo on all injected keystrokes so hooks
+    /// can distinguish our SendInput calls from real user input.
+    /// ASCII "QTRN" = QuickTranslate Remote Notification.
+    /// </summary>
+    internal const nuint QTAG_EXTRA_INFO = 0x5154524E;
 
     /// <summary>
     /// Stores all supported clipboard formats for preservation.
@@ -309,6 +315,7 @@ internal static class ClipboardHelper
 
     /// <summary>
     /// Sends Ctrl+C using SendInput API for reliable copying.
+    /// All injected inputs carry QTAG_EXTRA_INFO so hooks can ignore them.
     /// </summary>
     public static void SendCopyCommand()
     {
@@ -319,30 +326,35 @@ internal static class ClipboardHelper
         inputShiftUp.type = INPUT_TYPE.INPUT_KEYBOARD;
         inputShiftUp.Anonymous.ki.wVk = Windows.Win32.UI.Input.KeyboardAndMouse.VIRTUAL_KEY.VK_SHIFT;
         inputShiftUp.Anonymous.ki.dwFlags = KEYBD_EVENT_FLAGS.KEYEVENTF_KEYUP;
+        inputShiftUp.Anonymous.ki.dwExtraInfo = QTAG_EXTRA_INFO;
 
         // Ctrl Down
         var inputCtrlDown = new INPUT();
         inputCtrlDown.type = INPUT_TYPE.INPUT_KEYBOARD;
         inputCtrlDown.Anonymous.ki.wVk = Windows.Win32.UI.Input.KeyboardAndMouse.VIRTUAL_KEY.VK_CONTROL;
         inputCtrlDown.Anonymous.ki.dwFlags = 0; // KeyDown
+        inputCtrlDown.Anonymous.ki.dwExtraInfo = QTAG_EXTRA_INFO;
 
         // C Down
         var inputCDown = new INPUT();
         inputCDown.type = INPUT_TYPE.INPUT_KEYBOARD;
         inputCDown.Anonymous.ki.wVk = Windows.Win32.UI.Input.KeyboardAndMouse.VIRTUAL_KEY.VK_C;
         inputCDown.Anonymous.ki.dwFlags = 0; // KeyDown
+        inputCDown.Anonymous.ki.dwExtraInfo = QTAG_EXTRA_INFO;
 
         // C Up
         var inputCUp = new INPUT();
         inputCUp.type = INPUT_TYPE.INPUT_KEYBOARD;
         inputCUp.Anonymous.ki.wVk = Windows.Win32.UI.Input.KeyboardAndMouse.VIRTUAL_KEY.VK_C;
         inputCUp.Anonymous.ki.dwFlags = KEYBD_EVENT_FLAGS.KEYEVENTF_KEYUP;
+        inputCUp.Anonymous.ki.dwExtraInfo = QTAG_EXTRA_INFO;
 
         // Ctrl Up
         var inputCtrlUp = new INPUT();
         inputCtrlUp.type = INPUT_TYPE.INPUT_KEYBOARD;
         inputCtrlUp.Anonymous.ki.wVk = Windows.Win32.UI.Input.KeyboardAndMouse.VIRTUAL_KEY.VK_CONTROL;
         inputCtrlUp.Anonymous.ki.dwFlags = KEYBD_EVENT_FLAGS.KEYEVENTF_KEYUP;
+        inputCtrlUp.Anonymous.ki.dwExtraInfo = QTAG_EXTRA_INFO;
 
         // 2. Send inputs
         // Release modifiers first in a separate batch to ensure state is clean

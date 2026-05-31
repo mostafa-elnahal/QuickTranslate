@@ -27,5 +27,7 @@ public static class Constants
     public static class Defaults
     {
         public const string TargetLanguage = "en";
+        public const string OcrHotkey = "Ctrl+Shift+O";
+        public const string OcrLanguage = "en-US";
     }
 }

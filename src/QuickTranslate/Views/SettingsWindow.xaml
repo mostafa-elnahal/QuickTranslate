@@ -158,6 +158,7 @@
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="30"/>
                                     <RowDefinition Height="30"/>
+                                    <RowDefinition Height="30"/>
                                 </Grid.RowDefinitions>
 
                                 <!-- Action Name -->
@@ -193,6 +194,29 @@
                                 <Button Grid.Row="1" Grid.Column="1" 
                                         Content="{Binding PronunciationHotkey}"
                                         Click="EditPronunciationHotkey_Click"
+                                        MinWidth="80"
+                                        Padding="8,4"
+                                        HorizontalContentAlignment="Center"
+                                        ToolTip="Click to change hotkey">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource WindowHeaderButtonStyle}">
+                                            <Setter Property="Background" Value="{StaticResource SurfaceBrush}"/>
+                                            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+                                            <Setter Property="BorderThickness" Value="1"/>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+
+                                <!-- OCR Action -->
+                                <TextBlock Grid.Row="2" Grid.Column="0" 
+                                           Text="OCR Text Recognition" 
+                                           VerticalAlignment="Center" 
+                                           Foreground="{StaticResource TextPrimaryBrush}"/>
+
+                                <!-- OCR Hotkey Button -->
+                                <Button Grid.Row="2" Grid.Column="1" 
+                                        Content="{Binding OcrHotkey}"
+                                        Click="EditOcrHotkey_Click"
                                         MinWidth="80"
                                         Padding="8,4"
                                         HorizontalContentAlignment="Center"
@@ -403,6 +427,48 @@
                                            FontSize="11"
                                            TextWrapping="Wrap"
                                            Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+
+                    <!-- OCR Section -->
+                    <StackPanel Visibility="{Binding SelectedCategory, Converter={StaticResource CategoryToVisibility}, ConverterParameter=OCR}">
+                        <GroupBox Header="OCR Settings" Style="{StaticResource SettingsGroupBoxStyle}">
+                            <Grid Margin="12,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="140"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="30"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Text="OCR Language:" VerticalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <ComboBox Grid.Row="0" Grid.Column="1" 
+                                          ItemsSource="{Binding AvailableOcrLanguages}"
+                                          SelectedItem="{Binding SelectedOcrLanguage}"
+                                          DisplayMemberPath="DisplayName"
+                                          Style="{StaticResource SettingsComboBoxStyle}"
+                                          VerticalAlignment="Center"/>
+                            </Grid>
+                        </GroupBox>
+
+                        <GroupBox Header="About OCR" Style="{StaticResource SettingsGroupBoxStyle}">
+                            <StackPanel Margin="12,4">
+                                <TextBlock Text="OCR (Optical Character Recognition) extracts text from images and screen regions."
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           FontSize="11"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,4"/>
+                                <TextBlock Text="Draw a rectangle on screen to capture text. Uses the built-in Windows OCR engine."
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           FontSize="11"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,4"/>
+                                <TextBlock Text="Note: Requires Windows 10 1809+ and the OCR language pack installed."
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           FontSize="11"
+                                           TextWrapping="Wrap"/>
                             </StackPanel>
                         </GroupBox>
                     </StackPanel>

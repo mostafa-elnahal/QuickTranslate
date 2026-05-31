@@ -17,6 +17,11 @@ public interface ITrayIconService : IDisposable
     event EventHandler SettingsRequested;
 
     /// <summary>
+    /// Event triggered when the "OCR Text" menu item is clicked.
+    /// </summary>
+    event EventHandler OcrRequested;
+
+    /// <summary>
     /// Initializes and shows the tray icon.
     /// </summary>
     void Initialize();
