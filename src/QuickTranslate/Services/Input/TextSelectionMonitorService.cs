@@ -14,7 +14,7 @@ namespace QuickTranslate.Services.Input;
 public class TextSelectionMonitorService : ITextSelectionMonitorService
 {
     private const int MIN_DRAG_DISTANCE = 5;
-    private const int CAPTURE_DELAY_MS = 80;
+    private const int CAPTURE_DELAY_MS = 20;
 
     private const int VK_SHIFT = 0x10;
     private const int VK_CONTROL = 0x11;

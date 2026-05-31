@@ -1,6 +1,8 @@
+using System;
 using System.Drawing;
 using System.Threading;
 using System.Threading.Tasks;
+using QuickTranslate.Models;
 
 namespace QuickTranslate.Services.Input;
 
@@ -11,7 +13,10 @@ public interface IScreenCaptureService
 {
     /// <summary>
     /// Shows a fullscreen overlay for the user to select a screen region.
-    /// Returns the captured bitmap, or null if the user cancels.
+    /// The overlay stays visible after selection until the caller invokes the completeCapture callback.
+    /// Returns the captured bitmap with selection bounds, or null if the user cancels.
     /// </summary>
-    Task<Bitmap?> CaptureRegionAsync(CancellationToken cancellationToken = default);
+    Task<ScreenCaptureResult?> CaptureRegionAsync(
+        CancellationToken cancellationToken = default,
+        Action<ScreenCaptureResult, Action>? onRegionCaptured = null);
 }

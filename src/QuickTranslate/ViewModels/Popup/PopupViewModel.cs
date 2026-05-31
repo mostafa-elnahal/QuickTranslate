@@ -7,6 +7,7 @@ using QuickTranslate.Services.Audio;
 using QuickTranslate.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using QuickTranslate.Helpers;
 
 namespace QuickTranslate.ViewModels;
 
@@ -162,6 +163,9 @@ public partial class PopupViewModel : ObservableObject, IDisposable
 
     public async Task TranslateAsync(string sourceText, bool isReTranslation = false)
     {
+        int genBefore = _translationGeneration;
+        DebugLog.Write($"TranslateAsync ENTER: text='{sourceText}', isReTranslation={isReTranslation}, gen={genBefore}, ctsCanceled={_translationCts?.IsCancellationRequested}");
+
         try
         {
             _translationCts?.Cancel();
@@ -176,9 +180,12 @@ public partial class PopupViewModel : ObservableObject, IDisposable
                 CurrentTranslation = null;
             }
 
+            DebugLog.Write($"TranslateAsync: gen now={_translationGeneration}, starting translation request");
+
             if (string.IsNullOrWhiteSpace(sourceText))
             {
                 CurrentTranslation = await _translationService.TranslateAsync(sourceText, _targetLanguage, null, _translationCts.Token);
+                DebugLog.Write($"TranslateAsync: empty text translation completed, CurrentTranslation={CurrentTranslation != null}");
                 return;
             }
 
@@ -188,10 +195,15 @@ public partial class PopupViewModel : ObservableObject, IDisposable
                 : _settingsService.Settings.DefaultSourceLanguage;
 
             CurrentTranslation = await _translationService.TranslateAsync(sourceText, _targetLanguage, sourceLang, _translationCts.Token);
+            DebugLog.Write($"TranslateAsync EXIT: gen={_translationGeneration}, CurrentTranslation={CurrentTranslation != null}");
         }
-        catch (TaskCanceledException) { }
+        catch (TaskCanceledException)
+        {
+            DebugLog.Write($"TranslateAsync: TaskCanceledException caught, gen={_translationGeneration}");
+        }
         catch (Exception ex)
         {
+            DebugLog.Write($"TranslateAsync: Exception '{ex.Message}', gen={_translationGeneration}");
             System.Diagnostics.Debug.WriteLine($"Translation Error: {ex.Message}");
         }
     }
@@ -219,10 +231,13 @@ public partial class PopupViewModel : ObservableObject, IDisposable
 
     public void HideWindow()
     {
+        int genBefore = _translationGeneration;
+        bool ctsWasCanceled = _translationCts?.IsCancellationRequested ?? false;
         _translationCts?.Cancel();
         _translationGeneration++;
         IsVisible = false;
         CurrentTranslation = null;
+        DebugLog.Write($"HideWindow: gen {genBefore} -> {_translationGeneration}, ctsWasCanceled={ctsWasCanceled}, ctsIsNull={_translationCts == null}");
     }
 
     #endregion

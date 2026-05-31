@@ -65,6 +65,10 @@ public partial class App : Application
         {
             selectionMonitor.Start();
         }
+
+        // Keep toolbar behaving as a tooltip, close on focus loss
+        var foregroundMonitor = _serviceProvider.GetRequiredService<IForegroundWindowMonitorService>();
+        foregroundMonitor.Start();
     }
 
     private void ConfigureServices(IServiceCollection services)
@@ -89,6 +93,7 @@ public partial class App : Application
         // Text Selection Monitor
         services.AddSingleton<IGlobalInputHookService, GlobalInputHookService>();
         services.AddSingleton<ITextSelectionMonitorService, TextSelectionMonitorService>();
+        services.AddSingleton<IForegroundWindowMonitorService, ForegroundWindowMonitorService>();
 
         // Conditional Sizing Service (factory pattern for legacy support if needed, but here simple)
         services.AddSingleton<IWindowSizingService>(sp => 
@@ -362,35 +367,39 @@ public partial class App : Application
 
     /// <summary>
     /// Handles OCR request from hotkey or tray menu.
-    /// Captures text via OCR and shows it in the translation popup.
+    /// Captures a screen region and shows the floating toolbar expanded
+    /// below the selection with OCR language selection.
+    /// The overlay stays visible until the toolbar is dismissed or an action is taken.
     /// </summary>
     private async Task HandleOcrRequestAsync()
     {
         if (_serviceProvider == null) return;
 
-        var ocrService = _serviceProvider.GetRequiredService<IOcrService>();
-        var translationPopup = _serviceProvider.GetRequiredService<TranslationPopup>();
-        var translationViewModel = _serviceProvider.GetRequiredService<PopupViewModel>();
+        var screenCaptureService = _serviceProvider.GetRequiredService<IScreenCaptureService>();
+        var toolbarWindow = _serviceProvider.GetRequiredService<FloatingToolbarWindow>();
+        var toolbarVm = _serviceProvider.GetRequiredService<FloatingToolbarViewModel>();
 
         try
         {
-            string? capturedText = await ocrService.CaptureAndRecognizeAsync();
+            await screenCaptureService.CaptureRegionAsync(
+                onRegionCaptured: (captureResult, completeCapture) =>
+                {
+                    toolbarWindow.ShowToolbar(captureResult.Bitmap, captureResult.SelectionBounds);
 
-            if (!string.IsNullOrWhiteSpace(capturedText))
-            {
-                // Close any other popups
-                var pronunciationViewModel = _serviceProvider.GetRequiredService<PronunciationViewModel>();
-                pronunciationViewModel.HideWindow();
-
-                // Show translation popup with OCR text
-                translationPopup.ShowAndTranslate(capturedText);
-            }
+                    Action onDismiss = null!;
+                    onDismiss = () =>
+                    {
+                        toolbarVm.DismissRequested -= onDismiss;
+                        completeCapture();
+                    };
+                    toolbarVm.DismissRequested += onDismiss;
+                });
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"OCR failed: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"OCR capture failed: {ex.Message}");
             MessageBox.Show(
-                $"Failed to perform text recognition.\nError: {ex.Message}",
+                $"Failed to capture screen region.\nError: {ex.Message}",
                "QuickTranslate - OCR Error",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);

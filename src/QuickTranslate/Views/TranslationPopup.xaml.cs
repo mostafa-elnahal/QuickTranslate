@@ -1,6 +1,7 @@
 using System;
 using System.Windows;
 using System.Windows.Input;
+using QuickTranslate.Helpers;
 using QuickTranslate.Services;
 using QuickTranslate.ViewModels;
 using QuickTranslate.Models;
@@ -46,6 +47,8 @@ public partial class TranslationPopup : Window
     /// </summary>
     public async void ShowAndTranslate(string selectedText)
     {
+        DebugLog.Write($"ShowAndTranslate ENTER: text='{selectedText}', currentGen={_viewModel.TranslationGeneration}, isVisible={_viewModel.IsVisible}");
+
         // 1. Start translation (Window is Collapsed from ViewModel start)
         // TranslateAsync increments the generation at the start
         await _viewModel.TranslateAsync(selectedText);
@@ -53,6 +56,7 @@ public partial class TranslationPopup : Window
         // 2. Capture generation AFTER translation completes
         // This is the generation that this translation belongs to
         int myGeneration = _viewModel.TranslationGeneration;
+        DebugLog.Write($"ShowAndTranslate: after translation, myGeneration={myGeneration}, CurrentTranslation={_viewModel.CurrentTranslation != null}, isVisible={_viewModel.IsVisible}");
 
         // 3. Prepare for sizing: Make visible but transparent
         // This forces WPF to calculate the size based on the new content
@@ -70,18 +74,23 @@ public partial class TranslationPopup : Window
         UpdateLayout();
 
         // 5. Final guard before showing (in case something changed during layout)
-        if (_viewModel.TranslationGeneration != myGeneration)
+        int currentGen = _viewModel.TranslationGeneration;
+        if (currentGen != myGeneration)
         {
+            DebugLog.Write($"ShowAndTranslate: GENERATION MISMATCH! myGen={myGeneration}, currentGen={currentGen}, ABORTING");
             Opacity = 0;
             _viewModel.IsVisible = false;
             return;
         }
+
+        DebugLog.Write($"ShowAndTranslate: generation check passed ({myGeneration}), positioning and showing");
 
         // 6. Position window near mouse cursor using REAL size
         _positioningService.PositionNearCursor(this);
 
         // 7. Show instantly
         Opacity = 1.0;
+        DebugLog.Write($"ShowAndTranslate: popup shown successfully");
     }
 
     protected override void OnSourceInitialized(EventArgs e)

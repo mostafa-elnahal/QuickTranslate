@@ -281,7 +281,7 @@ internal static class ClipboardHelper
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Clipboard clear failed (attempt {i + 1}): {ex.Message}");
-                System.Threading.Thread.Sleep(50);
+                System.Threading.Thread.Sleep(10);
             }
         }
     }
@@ -289,7 +289,7 @@ internal static class ClipboardHelper
     /// <summary>
     /// Waits for text to appear in the clipboard and returns it, handling concurrency exceptions.
     /// </summary>
-    public static string GetTextWithTimeout(int retryAttempts = 10, int retryInterval = 50)
+    public static string GetTextWithTimeout(int retryAttempts = 20, int retryInterval = 10)
     {
         for (int i = 0; i < retryAttempts; i++)
         {
@@ -372,7 +372,7 @@ internal static class ClipboardHelper
             }
 
             // Short delay
-            System.Threading.Thread.Sleep(10);
+            System.Threading.Thread.Sleep(2);
 
             // Press keys
             fixed (INPUT* pInputsDown = inputsDown)
@@ -385,7 +385,7 @@ internal static class ClipboardHelper
             }
 
             // Small delay to ensure apps register the key press
-            System.Threading.Thread.Sleep(50);
+            System.Threading.Thread.Sleep(10);
 
             // Release keys
             fixed (INPUT* pInputsUp = inputsUp)

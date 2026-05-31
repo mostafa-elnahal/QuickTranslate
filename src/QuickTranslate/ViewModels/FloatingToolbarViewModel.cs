@@ -1,34 +1,34 @@
 using System;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using QuickTranslate.Helpers;
 using QuickTranslate.Models;
 using QuickTranslate.Services;
 using QuickTranslate.Services.Input;
 
 namespace QuickTranslate.ViewModels;
 
-/// <summary>
-/// ViewModel for the floating toolbar that appears after text capture.
-/// Supports collapsed (icon) and expanded (toolbar) visual states.
-/// </summary>
 public partial class FloatingToolbarViewModel : ObservableObject
 {
     private readonly IClipboardService _clipboardService;
+    private readonly IOcrService _ocrService;
+    private readonly ISettingsService _settingsService;
     private readonly DispatcherTimer _autoDismissTimer;
     private long _lastDismissTime;
+    private long _lastInteractionTime;
+    private System.Drawing.Bitmap? _ocrBitmap;
 
-    /// <summary>Raised when a pointer down occurs anywhere on screen.</summary>
     public event Action<Point>? GlobalPointerDown;
 
-    /// <summary>Raised when the user clicks Translate. Payload is the captured text.</summary>
     public event Action<string>? TranslateRequested;
 
-    /// <summary>Raised when the user clicks Pronounce. Payload is the captured text.</summary>
     public event Action<string>? PronounceRequested;
 
-    /// <summary>Raised when the toolbar should be hidden (dismiss, action taken, etc.).</summary>
     public event Action? DismissRequested;
 
     [ObservableProperty]
@@ -43,26 +43,90 @@ public partial class FloatingToolbarViewModel : ObservableObject
     [ObservableProperty]
     private ToolbarDisplayMode _mode = ToolbarDisplayMode.Selection;
 
-    public FloatingToolbarViewModel(IClipboardService clipboardService, IGlobalInputHookService inputHookService)
+    [ObservableProperty]
+    private string _ocrLanguage;
+
+    public ObservableCollection<OcrLanguage> OcrAvailableLanguages { get; } = new();
+
+    public FloatingToolbarViewModel(
+        IClipboardService clipboardService,
+        IGlobalInputHookService inputHookService,
+        IForegroundWindowMonitorService foregroundMonitor,
+        IOcrService ocrService,
+        ISettingsService settingsService)
     {
         _clipboardService = clipboardService;
+        _ocrService = ocrService;
+        _settingsService = settingsService;
 
         inputHookService.MouseDownDetected += p => GlobalPointerDown?.Invoke(p);
+
+        foregroundMonitor.ForegroundWindowChanged += OnForegroundWindowChanged;
 
         _autoDismissTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromSeconds(3)
         };
-        _autoDismissTimer.Tick += (_, _) => Dismiss();
+        _autoDismissTimer.Tick += (_, _) => { DebugLog.Write("AutoDismissTimer fired"); Dismiss(); };
+
+        _ocrLanguage = _settingsService.Settings.OcrLanguage;
+        LoadOcrLanguages();
     }
 
-    /// <summary>
-    /// Shows the toolbar with the given captured text.
-    /// </summary>
+    partial void OnOcrLanguageChanged(string value)
+    {
+        _ocrService.CurrentLanguageCode = value;
+        _settingsService.Settings.OcrLanguage = value;
+        _ = _settingsService.SaveAsync();
+    }
+
+    private void LoadOcrLanguages()
+    {
+        var languages = _ocrService.GetAvailableLanguages();
+        OcrAvailableLanguages.Clear();
+        foreach (var lang in languages)
+        {
+            OcrAvailableLanguages.Add(lang);
+        }
+    }
+
+    public void SetOcrBitmap(System.Drawing.Bitmap bitmap)
+    {
+        DisposeOcrBitmap();
+        _ocrBitmap = bitmap;
+    }
+
+    private void DisposeOcrBitmap()
+    {
+        _ocrBitmap?.Dispose();
+        _ocrBitmap = null;
+    }
+
+    private void OnForegroundWindowChanged(IntPtr hwnd)
+    {
+        DebugLog.Write($"OnForegroundWindowChanged: IsVisible={IsVisible}, hwnd={hwnd}");
+        if (!IsVisible) return;
+
+        if (Environment.TickCount64 - _lastInteractionTime < 500)
+        {
+            DebugLog.Write($"OnForegroundWindowChanged: skipped (recent interaction)");
+            return;
+        }
+
+        DebugLog.Write($"OnForegroundWindowChanged: calling Dismiss");
+        Dismiss();
+    }
+
     public void Show(string text, ToolbarDisplayMode mode)
     {
-        if (Environment.TickCount64 - _lastDismissTime < 100)
+        long elapsed = Environment.TickCount64 - _lastDismissTime;
+        if (elapsed < 100)
+        {
+            DebugLog.Write($"Show: GUARDED (only {elapsed}ms since dismiss), text='{text}'");
             return;
+        }
+
+        DebugLog.Write($"Show: text='{text}', mode={mode}, elapsed={elapsed}ms since dismiss");
 
         CapturedText = text;
         Mode = mode;
@@ -72,9 +136,6 @@ public partial class FloatingToolbarViewModel : ObservableObject
         RestartAutoDismissTimer();
     }
 
-    /// <summary>
-    /// Called when the mouse enters the toolbar area.
-    /// </summary>
     public void OnMouseEnter()
     {
         _autoDismissTimer.Stop();
@@ -85,9 +146,6 @@ public partial class FloatingToolbarViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// Called when the mouse leaves the toolbar area.
-    /// </summary>
     public void OnMouseLeave()
     {
         if (Mode == ToolbarDisplayMode.Selection)
@@ -98,28 +156,55 @@ public partial class FloatingToolbarViewModel : ObservableObject
         RestartAutoDismissTimer();
     }
 
+    public void OnPointerDownInsideToolbar()
+    {
+        _lastInteractionTime = Environment.TickCount64;
+    }
+
     [RelayCommand]
-    private void Translate()
+    private async Task Translate()
     {
         string text = CapturedText;
+
+        if (Mode == ToolbarDisplayMode.Ocr && _ocrBitmap != null)
+        {
+            text = await _ocrService.RecognizeFromBitmapAsync(_ocrBitmap, OcrLanguage);
+        }
+
+        DebugLog.Write($"TranslateCommand: text='{text}', raising TranslateRequested");
         Dismiss();
         TranslateRequested?.Invoke(text);
     }
 
     [RelayCommand]
-    private void Pronounce()
+    private async Task Pronounce()
     {
         string text = CapturedText;
+
+        if (Mode == ToolbarDisplayMode.Ocr && _ocrBitmap != null)
+        {
+            text = await _ocrService.RecognizeFromBitmapAsync(_ocrBitmap, OcrLanguage);
+        }
+
+        DebugLog.Write($"PronounceCommand: text='{text}', raising PronounceRequested");
         Dismiss();
         PronounceRequested?.Invoke(text);
     }
 
     [RelayCommand]
-    private void Copy()
+    private async Task Copy()
     {
-        if (!string.IsNullOrEmpty(CapturedText))
+        string text = CapturedText;
+
+        if (Mode == ToolbarDisplayMode.Ocr && _ocrBitmap != null)
         {
-            _clipboardService.SetText(CapturedText);
+            text = await _ocrService.RecognizeFromBitmapAsync(_ocrBitmap, OcrLanguage);
+        }
+
+        DebugLog.Write($"CopyCommand: text='{text}', copying then dismissing");
+        if (!string.IsNullOrEmpty(text))
+        {
+            _clipboardService.SetText(text);
         }
         Dismiss();
     }
@@ -127,8 +212,10 @@ public partial class FloatingToolbarViewModel : ObservableObject
     [RelayCommand]
     private void Dismiss()
     {
+        DebugLog.Write($"Dismiss: IsVisible={IsVisible}, IsExpanded={IsExpanded}");
         _lastDismissTime = Environment.TickCount64;
         _autoDismissTimer.Stop();
+        DisposeOcrBitmap();
         IsVisible = false;
         IsExpanded = false;
         CapturedText = string.Empty;

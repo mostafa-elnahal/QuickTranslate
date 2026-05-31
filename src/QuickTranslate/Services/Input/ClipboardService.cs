@@ -30,13 +30,13 @@ public class ClipboardService : IClipboardService
             Log($"Failed to save clipboard: {ex.Message}");
         }
 
-        Thread.Sleep(50);
+        Thread.Sleep(10);
 
         // 2. Clear & Copy selection
         ClipboardHelper.ClearSafe();
         
         // Failsafe wait
-        Thread.Sleep(50);
+        Thread.Sleep(10);
         
         ClipboardHelper.SendCopyCommand();
 
@@ -117,7 +117,7 @@ public class ClipboardService : IClipboardService
             catch (Exception ex)
             {
                 Log($"Clipboard set text failed (attempt {i + 1}): {ex.Message}");
-                Thread.Sleep(50);
+                Thread.Sleep(10);
             }
         }
     }

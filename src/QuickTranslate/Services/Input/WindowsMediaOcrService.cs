@@ -56,13 +56,14 @@ public class WindowsMediaOcrService : IOcrService
     {
         try
         {
-            var selectedRegion = await _screenCaptureService.CaptureRegionAsync(cancellationToken);
-            if (selectedRegion == null)
+            var result = await _screenCaptureService.CaptureRegionAsync(cancellationToken);
+            if (result == null)
             {
                 return null;
             }
 
-            return await RecognizeFromBitmapAsync(selectedRegion, cancellationToken: cancellationToken);
+            using var bitmap = result.Bitmap;
+            return await RecognizeFromBitmapAsync(bitmap, cancellationToken: cancellationToken);
         }
         catch (OperationCanceledException)
         {

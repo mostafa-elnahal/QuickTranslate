@@ -12,6 +12,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using QuickTranslate.Models;
 using Point = System.Windows.Point;
 
 namespace QuickTranslate.Views;
@@ -20,16 +21,21 @@ namespace QuickTranslate.Views;
 /// A fullscreen overlay that captures the screen, freezes it, and allows the user
 /// to draw a rectangle to select a screen region for OCR.
 /// Follows Text Grab's approach for DPI-aware screen capture and selection.
+/// After selection, the overlay stays visible until CompleteCapture is called.
 /// </summary>
 public partial class ScreenSelectionOverlay : Window
 {
     private Point _clickedPoint;
     private bool _isSelecting;
-    private TaskCompletionSource<Bitmap?>? _tcs;
+    private TaskCompletionSource<ScreenCaptureResult?>? _tcs;
     private CancellationToken? _cancellationToken;
     private Bitmap? _screenBitmap;
     private DpiScale _dpiScale;
     private Point _absoluteWindowPosition;
+    private ScreenCaptureResult? _capturedResult;
+
+    /// <summary>Fired when the user has drawn a valid selection rectangle.</summary>
+    public event Action<System.Drawing.Bitmap, System.Drawing.Rectangle>? RegionCaptured;
 
     public ScreenSelectionOverlay()
     {
@@ -38,19 +44,19 @@ public partial class ScreenSelectionOverlay : Window
 
     /// <summary>
     /// Shows the overlay and waits for the user to select a region.
-    /// Returns the captured bitmap, or null if cancelled.
+    /// The overlay stays visible after selection until CompleteCapture is called.
     /// </summary>
-    public Task<Bitmap?> CaptureAsync(CancellationToken cancellationToken = default)
+    public Task<ScreenCaptureResult?> CaptureAsync(CancellationToken cancellationToken = default)
     {
         _cancellationToken = cancellationToken;
-        _tcs = new TaskCompletionSource<Bitmap?>();
+        _tcs = new TaskCompletionSource<ScreenCaptureResult?>();
 
         // Register cancellation
         cancellationToken.Register(() =>
         {
-            _tcs?.TrySetResult(null);
             Dispatcher.Invoke(() =>
             {
+                _tcs?.TrySetResult(null);
                 CleanupResources();
                 Close();
                 Cursor = Cursors.Arrow;
@@ -80,6 +86,32 @@ public partial class ScreenSelectionOverlay : Window
         Cursor = Cursors.Cross;
 
         return _tcs.Task;
+    }
+
+    /// <summary>
+    /// Completes the capture session: closes the overlay and returns the result.
+    /// </summary>
+    public void CompleteCapture()
+    {
+        var result = _capturedResult;
+        CleanupResources();
+        _tcs?.TrySetResult(result);
+        Close();
+        Cursor = Cursors.Arrow;
+        UnClipCursor();
+    }
+
+    /// <summary>
+    /// Cancels the capture session without a result.
+    /// </summary>
+    public void CancelCapture()
+    {
+        _capturedResult = null;
+        CleanupResources();
+        _tcs?.TrySetResult(null);
+        Close();
+        Cursor = Cursors.Arrow;
+        UnClipCursor();
     }
 
     /// <summary>
@@ -235,17 +267,21 @@ public partial class ScreenSelectionOverlay : Window
             Rect absoluteRect = new(xOffset, yOffset, width, height);
 
             var screenshot = CropScreenRegion(absoluteRect);
-            CleanupResources();
-            _tcs?.TrySetResult(screenshot);
+
+            // Physical screen selection rectangle (for toolbar positioning)
+            var selectionPhysical = new Rectangle(
+                (int)topLeftPhysical.X, (int)topLeftPhysical.Y,
+                (int)width, (int)height);
+
+            _capturedResult = new ScreenCaptureResult(screenshot, selectionPhysical);
+
+            // Keep overlay visible and fire event so toolbar can appear
+            RegionCaptured?.Invoke(screenshot, selectionPhysical);
         }
         else
         {
-            CleanupResources();
-            _tcs?.TrySetResult(null);
+            CancelCapture();
         }
-
-        Close();
-        Cursor = Cursors.Arrow;
     }
 
     /// <summary>
@@ -334,11 +370,8 @@ public partial class ScreenSelectionOverlay : Window
         {
             _isSelecting = false;
             RegionClickCanvas?.ReleaseMouseCapture();
-            UnClipCursor();
-            CleanupResources();
-            _tcs?.TrySetResult(null);
-            Close();
-            Cursor = Cursors.Arrow;
+            _capturedResult = null;
+            CancelCapture();
         }
     }
 
