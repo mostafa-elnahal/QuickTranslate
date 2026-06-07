@@ -39,6 +39,11 @@ public class PronunciationService : IPronunciationService
     /// </summary>
     public int MaxChunkSize => GetActiveProvider().MaxChunkSize;
 
+    /// <summary>
+    /// The level of timing support the active provider offers for word-level highlighting.
+    /// </summary>
+    public TimingSupportLevel TimingSupport => GetActiveProvider().TimingSupport;
+
     private IPronunciationProvider GetActiveProvider()
     {
         string providerName = _settingsService.Settings.PronunciationProvider;
@@ -71,29 +76,33 @@ public class PronunciationService : IPronunciationService
             data.DetectedLanguageCode = LanguageHelper.MapToIso6391(result.SourceLanguage);
             data.Phonetics = result.Phonetic;
 
-            // 2. Generate Syllables
-            try
+            // 2. Generate Syllables (English only — rule-based syllabification and IPA->phonetic
+            //    mappings are English-specific. Other languages produce incorrect results.)
+            if (data.DetectedLanguageCode.StartsWith("en", StringComparison.OrdinalIgnoreCase))
             {
-                var syllables = _syllableService.GetSyllables(text, result.Phonetic);
-                foreach (var (syllableText, isStressed) in syllables)
+                try
                 {
-                    data.Syllables.Add(new SyllableItem
+                    var syllables = _syllableService.GetSyllables(text, result.Phonetic);
+                    foreach (var (syllableText, isStressed) in syllables)
                     {
-                        Text = syllableText,
-                        IsStressed = isStressed
-                    });
+                        data.Syllables.Add(new SyllableItem
+                        {
+                            Text = syllableText,
+                            IsStressed = isStressed
+                        });
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                // Non-critical, just log and continue without syllables
-                System.Diagnostics.Debug.WriteLine($"Syllable generation failed: {ex}");
+                catch (Exception ex)
+                {
+                    // Non-critical, just log and continue without syllables
+                    System.Diagnostics.Debug.WriteLine($"Syllable generation failed: {ex}");
+                }
             }
 
             // 3. Generate Audio URI if text is small enough for the provider chunk size
             if (text.Length <= provider.MaxChunkSize)
             {
-                // GCP provider: fetch audio + timepoints in a single API call
+                // Providers with exact timepoints fetch audio + timing in one API call.
                 if (provider is GcpPronunciationProvider gcpProvider)
                 {
                     var gcpResult = await gcpProvider.GetAudioWithTimepointsAsync(
@@ -101,8 +110,12 @@ public class PronunciationService : IPronunciationService
                     if (gcpResult.IsSuccess)
                     {
                         data.AudioUri = gcpResult.Data!.AudioUri;
-                        data.Timepoints = gcpResult.Data.Timepoints;
                     }
+                }
+                else if (provider is ElevenLabsPronunciationProvider)
+                {
+                    // ElevenLabs audio + timepoints are fetched lazily via StreamAudioAsync
+                    // and cached in-memory. No pre-fetch during metadata loading.
                 }
                 else
                 {
@@ -120,6 +133,12 @@ public class PronunciationService : IPronunciationService
         {
             return PronunciationResult<PronunciationData>.Failure("Failed to load pronunciation data.", ex);
         }
+    }
+
+    public void ClearProviderCache()
+    {
+        if (GetActiveProvider() is ElevenLabsPronunciationProvider elevenLabs)
+            elevenLabs.ClearCache();
     }
 
     public async Task<PronunciationResult<Uri?>> GetAudioUriAsync(string text, string languageCode, bool slowMode)

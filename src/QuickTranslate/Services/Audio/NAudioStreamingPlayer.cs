@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using NAudio.Wave;
 using System.Threading;
 using System.Threading.Tasks;
+using QuickTranslate.Models;
 
 namespace QuickTranslate.Services.Audio;
 
@@ -12,6 +14,8 @@ public class NAudioStreamingPlayer : IStreamingAudioPlayer
 {
     private BufferedWaveProvider? _bufferedWaveProvider;
     private WaveOutEvent? _waveOut;
+    private const long MaxHistoryBytes = 50 * 1024 * 1024; // 50MB cap on PCM history
+
     private bool _isPlaying;
     private bool _isStreamingActive;
     private bool _disposed;
@@ -21,10 +25,53 @@ public class NAudioStreamingPlayer : IStreamingAudioPlayer
     private WaveFormat? _lastWaveFormat;
     private long _positionOffsetBytes = 0;
 
+    // Per-chunk timepoint accumulation for word-level animation timing
+    private readonly List<(IReadOnlyList<TimepointInfo> Timepoints, long ByteOffset)> _chunkTimepoints = new();
+    // Per-chunk byte-offset boundaries for playback-position-based chunk highlighting (estimated timing)
+    private readonly List<long> _chunkBoundaries = new();
+    private long _totalHistoryBytes = 0;
+
     public bool IsPlaying => _isPlaying;
 
     public event EventHandler? PlaybackCompleted;
     public event EventHandler? SampleEnqueued;
+
+    public void SetChunkTimepoints(IReadOnlyList<TimepointInfo> timepoints, int pcmDataLengthBytes)
+    {
+        _chunkTimepoints.Add((timepoints, _totalHistoryBytes));
+    }
+
+    public IReadOnlyList<TimepointInfo>? GetCombinedTimepoints()
+    {
+        if (_chunkTimepoints.Count == 0 || _lastWaveFormat == null)
+            return null;
+
+        var combined = new List<TimepointInfo>();
+        foreach (var (timepoints, byteOffset) in _chunkTimepoints)
+        {
+            double offsetSeconds = (double)byteOffset / _lastWaveFormat.AverageBytesPerSecond;
+            foreach (var tp in timepoints)
+            {
+                combined.Add(new TimepointInfo(tp.MarkName, tp.TimeSeconds + offsetSeconds));
+            }
+        }
+        return combined;
+    }
+
+    public void RecordChunkBoundary()
+    {
+        _chunkBoundaries.Add(_totalHistoryBytes);
+    }
+
+    public IReadOnlyList<TimeSpan> GetChunkBoundaries()
+    {
+        if (_lastWaveFormat == null) return Array.Empty<TimeSpan>();
+        var result = new TimeSpan[_chunkBoundaries.Count];
+        for (int i = 0; i < _chunkBoundaries.Count; i++)
+            result[i] = TimeSpan.FromSeconds(
+                (double)_chunkBoundaries[i] / _lastWaveFormat.AverageBytesPerSecond);
+        return result;
+    }
 
     public void Initialize(int sampleRate = 24000, int channels = 1, int bitsPerSample = 16)
     {
@@ -44,7 +91,7 @@ public class NAudioStreamingPlayer : IStreamingAudioPlayer
         var waveFormat = new WaveFormat(sampleRate, bitsPerSample, channels);
         _bufferedWaveProvider = new BufferedWaveProvider(waveFormat)
         {
-            BufferDuration = TimeSpan.FromMinutes(60), // Huge buffer (60 mins) to allow full pre-download
+            BufferDuration = TimeSpan.FromMinutes(5), // 5 min buffer (~14MB at 24kHz) — ample for TTS audio
             DiscardOnBufferOverflow = false, // Block instead of discarding
             ReadFully = false // Essential: tells NAudio to stop and fire PlaybackStopped when buffer runs empty
         };
@@ -85,8 +132,14 @@ public class NAudioStreamingPlayer : IStreamingAudioPlayer
         _bufferedWaveProvider.AddSamples(pcmData, 0, pcmData.Length);
         SampleEnqueued?.Invoke(this, EventArgs.Empty);
 
-        // Cache for replay
+        // Cache for replay (capped to prevent unbounded memory growth)
         _pcmHistory.Add((byte[])pcmData.Clone());
+        _totalHistoryBytes += pcmData.Length;
+        while (_totalHistoryBytes > MaxHistoryBytes && _pcmHistory.Count > 0)
+        {
+            _totalHistoryBytes -= _pcmHistory[0].Length;
+            _pcmHistory.RemoveAt(0);
+        }
 
         // Auto-resume: if the WaveOutEvent stopped because the buffer ran dry
         // during active streaming, restart playback now that new data is available.
@@ -142,32 +195,24 @@ public class NAudioStreamingPlayer : IStreamingAudioPlayer
         _isStreamingActive = false;
         IsPaused = false;
         _pcmHistory.Clear(); // Clear history on full stop
+        _chunkTimepoints.Clear();
+        _chunkBoundaries.Clear();
+        _totalHistoryBytes = 0;
     }
 
     public void Restart()
     {
         if (_pcmHistory.Count == 0 || _lastWaveFormat == null) return;
 
-        // Stop current playback without clearing history
+        // Reuse existing WaveOutEvent and BufferedWaveProvider instead of destroying
+        // and recreating them. This avoids allocating a new 60-minute circular buffer
+        // (~172MB) on every restart.
         if (_waveOut != null)
         {
-            _waveOut.Stop();
             _waveOut.PlaybackStopped -= OnPlaybackStopped;
-            _waveOut.Dispose();
-            _waveOut = null;
+            _waveOut.Stop();
         }
         _bufferedWaveProvider?.ClearBuffer();
-
-        // Re-initialize
-        _bufferedWaveProvider = new BufferedWaveProvider(_lastWaveFormat)
-        {
-            BufferDuration = TimeSpan.FromMinutes(60),
-            DiscardOnBufferOverflow = false,
-            ReadFully = false
-        };
-        _waveOut = new WaveOutEvent();
-        _waveOut.Init(_bufferedWaveProvider);
-        _waveOut.PlaybackStopped += OnPlaybackStopped;
 
         // Re-enqueue all cached PCM data
         foreach (var chunk in _pcmHistory)
@@ -177,8 +222,12 @@ public class NAudioStreamingPlayer : IStreamingAudioPlayer
 
         _positionOffsetBytes = 0;
 
-        // Start playback
-        _waveOut.Play();
+        // Resume playback
+        if (_waveOut != null)
+        {
+            _waveOut.PlaybackStopped += OnPlaybackStopped;
+            _waveOut.Play();
+        }
         _isPlaying = true;
         IsPaused = false;
     }
@@ -187,59 +236,56 @@ public class NAudioStreamingPlayer : IStreamingAudioPlayer
     {
         if (_lastWaveFormat == null || _pcmHistory.Count == 0) return;
 
+        _chunkTimepoints.Clear();
+        _chunkBoundaries.Clear();
+
         long targetBytes = (long)(position.TotalSeconds * _lastWaveFormat.AverageBytesPerSecond);
         targetBytes -= targetBytes % _lastWaveFormat.BlockAlign; // Align to block boundary
 
+        bool wasPlaying = _isPlaying;
+
+        // Reuse existing WaveOutEvent and BufferedWaveProvider instead of
+        // recreating them (avoids ~172MB circular buffer allocation per seek).
         if (_waveOut != null)
         {
-            bool wasPlaying = _isPlaying;
-            _waveOut.Stop();
             _waveOut.PlaybackStopped -= OnPlaybackStopped;
-            _waveOut.Dispose();
-            _waveOut = null;
+            _waveOut.Stop();
+        }
+        _bufferedWaveProvider?.ClearBuffer();
 
-            _bufferedWaveProvider?.ClearBuffer();
-            _bufferedWaveProvider = new BufferedWaveProvider(_lastWaveFormat)
+        long currentByte = 0;
+        foreach (var chunk in _pcmHistory)
+        {
+            if (currentByte + chunk.Length <= targetBytes)
             {
-                BufferDuration = TimeSpan.FromMinutes(60),
-                DiscardOnBufferOverflow = false,
-                ReadFully = false
-            };
-
-            _waveOut = new WaveOutEvent();
-            _waveOut.Init(_bufferedWaveProvider);
-            _waveOut.PlaybackStopped += OnPlaybackStopped;
-
-            long currentByte = 0;
-            foreach (var chunk in _pcmHistory)
-            {
-                if (currentByte + chunk.Length <= targetBytes)
-                {
-                    currentByte += chunk.Length;
-                    continue;
-                }
-
-                if (currentByte < targetBytes)
-                {
-                    int skip = (int)(targetBytes - currentByte);
-                    int remaining = chunk.Length - skip;
-                    // Ensure skip and remaining are block aligned? chunk length should be properly aligned theoretically, but skip might not be?
-                    // targetBytes is aligned, currentByte is sum of chunk lengths (typically aligned).
-                    skip -= skip % _lastWaveFormat.BlockAlign;
-                    remaining = chunk.Length - skip;
-
-                    _bufferedWaveProvider.AddSamples(chunk, skip, remaining);
-                    currentByte += chunk.Length;
-                }
-                else
-                {
-                    _bufferedWaveProvider.AddSamples(chunk, 0, chunk.Length);
-                    currentByte += chunk.Length;
-                }
+                currentByte += chunk.Length;
+                continue;
             }
 
-            _positionOffsetBytes = targetBytes;
+            if (currentByte < targetBytes)
+            {
+                int skip = (int)(targetBytes - currentByte);
+                int remaining = chunk.Length - skip;
+                // Ensure skip and remaining are block aligned? chunk length should be properly aligned theoretically, but skip might not be?
+                // targetBytes is aligned, currentByte is sum of chunk lengths (typically aligned).
+                skip -= skip % _lastWaveFormat.BlockAlign;
+                remaining = chunk.Length - skip;
 
+                _bufferedWaveProvider.AddSamples(chunk, skip, remaining);
+                currentByte += chunk.Length;
+            }
+            else
+            {
+                _bufferedWaveProvider.AddSamples(chunk, 0, chunk.Length);
+                currentByte += chunk.Length;
+            }
+        }
+
+        _positionOffsetBytes = targetBytes;
+
+        if (_waveOut != null)
+        {
+            _waveOut.PlaybackStopped += OnPlaybackStopped;
             if (wasPlaying)
             {
                 _waveOut.Play();

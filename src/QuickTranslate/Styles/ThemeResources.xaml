@@ -22,7 +22,7 @@
     <SolidColorBrush x:Key="BadgeForegroundBrush" Color="{StaticResource AccentColor}"/>
     
     <Color x:Key="HighlightWordColor">#FFCC00</Color> <!-- Soft Yellow -->
-    <Color x:Key="HighlightChunkColor">#3498DB</Color> <!-- Light/Bright Blue -->
+    <Color x:Key="HighlightChunkColor">#AED6F1</Color> <!-- Soft Pastel Blue -->
     <SolidColorBrush x:Key="HighlightWordBrush" Color="{StaticResource HighlightWordColor}"/>
     <SolidColorBrush x:Key="HighlightChunkBrush" Color="{StaticResource HighlightChunkColor}"/>
     
@@ -35,7 +35,9 @@
     <sys:Double x:Key="FontSizeLarge">14</sys:Double>
     <sys:Double x:Key="FontSizeHeader">16</sys:Double>
 
-    <!-- Base Styles -->
+    <!-- Effects -->
+    <DropShadowEffect x:Key="DropShadowEffect" BlurRadius="8" ShadowDepth="2" Color="Black" Opacity="0.6"/>
+
     <!-- Base Styles -->
     <Style x:Key="IconPathStyle" TargetType="Path">
         <Setter Property="Fill" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Control}}"/>

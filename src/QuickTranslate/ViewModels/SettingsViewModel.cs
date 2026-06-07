@@ -67,6 +67,8 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsGeminiApiKeyInputEnabled))]
     [NotifyPropertyChangedFor(nameof(IsGcpApiKeyInputEnabled))]
+    [NotifyPropertyChangedFor(nameof(IsElevenLabsApiKeyInputEnabled))]
+    [NotifyPropertyChangedFor(nameof(IsElevenLabsVoiceIdInputEnabled))]
     private string _pronunciationProvider = Constants.PronunciationProviders.Google;
 
     [ObservableProperty]
@@ -74,6 +76,12 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty]
     private string _gcpApiKey = string.Empty;
+
+    [ObservableProperty]
+    private string _elevenLabsApiKey = string.Empty;
+
+    [ObservableProperty]
+    private string _elevenLabsVoiceId = "21m00Tcm4TlvDq8ikWAM";
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveCommand))]
@@ -87,7 +95,8 @@ public partial class SettingsViewModel : ObservableObject
     {
         PronunciationProviderInfo.Create(Constants.PronunciationProviders.Google),
         PronunciationProviderInfo.Create(Constants.PronunciationProviders.Gemini),
-        PronunciationProviderInfo.Create(Constants.PronunciationProviders.Gcp)
+        PronunciationProviderInfo.Create(Constants.PronunciationProviders.Gcp),
+        PronunciationProviderInfo.Create(Constants.PronunciationProviders.ElevenLabs)
     };
 
     public SettingsViewModel(ISettingsService settingsService, IDialogService dialogService, ITranslationService translationService, IOcrService ocrService)
@@ -120,6 +129,8 @@ public partial class SettingsViewModel : ObservableObject
 
     public bool IsGeminiApiKeyInputEnabled => PronunciationProvider == Constants.PronunciationProviders.Gemini;
     public bool IsGcpApiKeyInputEnabled => PronunciationProvider == Constants.PronunciationProviders.Gcp;
+    public bool IsElevenLabsApiKeyInputEnabled => PronunciationProvider == Constants.PronunciationProviders.ElevenLabs;
+    public bool IsElevenLabsVoiceIdInputEnabled => PronunciationProvider == Constants.PronunciationProviders.ElevenLabs;
 
     #endregion
 
@@ -133,7 +144,9 @@ public partial class SettingsViewModel : ObservableObject
         if (e.PropertyName != nameof(IsDirty) && 
             e.PropertyName != nameof(SelectedCategory) && 
             e.PropertyName != nameof(IsGeminiApiKeyInputEnabled) &&
-            e.PropertyName != nameof(IsGcpApiKeyInputEnabled))
+            e.PropertyName != nameof(IsGcpApiKeyInputEnabled) &&
+            e.PropertyName != nameof(IsElevenLabsApiKeyInputEnabled) &&
+            e.PropertyName != nameof(IsElevenLabsVoiceIdInputEnabled))
         {
             IsDirty = true;
         }
@@ -164,6 +177,14 @@ public partial class SettingsViewModel : ObservableObject
             return;
         }
 
+        if (PronunciationProvider == Constants.PronunciationProviders.ElevenLabs && string.IsNullOrWhiteSpace(ElevenLabsApiKey))
+        {
+            _dialogService.ShowWarning(
+                "ElevenLabs API Key is required when ElevenLabs is selected as the pronunciation provider.",
+                "Missing API Key");
+            return;
+        }
+
         _settingsService.Settings.StartWithWindows = StartWithWindows;
         _settingsService.Settings.WindowOpacity = WindowOpacity;
         _settingsService.Settings.DefaultSourceLanguage = DefaultSourceLanguage;
@@ -180,6 +201,8 @@ public partial class SettingsViewModel : ObservableObject
         _settingsService.Settings.PronunciationProvider = PronunciationProvider;
         _settingsService.Settings.GeminiApiKey = GeminiApiKey;
         _settingsService.Settings.GcpApiKey = GcpApiKey;
+        _settingsService.Settings.ElevenLabsApiKey = ElevenLabsApiKey;
+        _settingsService.Settings.ElevenLabsVoiceId = ElevenLabsVoiceId;
 
         await _settingsService.SaveAsync();
         IsDirty = false;
@@ -212,6 +235,8 @@ public partial class SettingsViewModel : ObservableObject
         PronunciationProvider = settings.PronunciationProvider;
         GeminiApiKey = settings.GeminiApiKey;
         GcpApiKey = settings.GcpApiKey;
+        ElevenLabsApiKey = settings.ElevenLabsApiKey;
+        ElevenLabsVoiceId = string.IsNullOrEmpty(settings.ElevenLabsVoiceId) ? "21m00Tcm4TlvDq8ikWAM" : settings.ElevenLabsVoiceId;
         IsDirty = false;
     }
 }

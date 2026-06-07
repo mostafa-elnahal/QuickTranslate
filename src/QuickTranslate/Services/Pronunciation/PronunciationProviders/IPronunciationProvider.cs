@@ -21,6 +21,11 @@ public interface IPronunciationProvider
     int MaxChunkSize { get; }
 
     /// <summary>
+    /// The level of timing support this provider offers for word-level highlighting.
+    /// </summary>
+    TimingSupportLevel TimingSupport { get; }
+
+    /// <summary>
     /// Gets audio as a file URI (non-streaming, for MediaElement).
     /// </summary>
     Task<PronunciationResult<Uri?>> GetAudioUriAsync(string text, string languageCode, bool slowMode);

@@ -36,6 +36,8 @@ public class GeminiPronunciationProvider : IPronunciationProvider, IDisposable
     /// </summary>
     public int MaxChunkSize => 4000;
 
+    public TimingSupportLevel TimingSupport => TimingSupportLevel.None;
+
     public GeminiPronunciationProvider(ISettingsService settingsService)
     {
         _httpClient = new HttpClient

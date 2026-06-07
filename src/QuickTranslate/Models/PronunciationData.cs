@@ -12,7 +12,7 @@ public class PronunciationData
     public List<SyllableItem> Syllables { get; set; } = new();
 
     /// <summary>
-    /// Exact word-timing data from GCP TTS SSML mark timepoints. Null for non-GCP providers.
+    /// Exact word-timing data from providers that return alignment/timepoint metadata.
     /// </summary>
     public IReadOnlyList<TimepointInfo>? Timepoints { get; set; }
 }

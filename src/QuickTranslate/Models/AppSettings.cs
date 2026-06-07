@@ -88,6 +88,22 @@ public class AppSettings
     public string EncryptedGcpApiKey { get; set; } = string.Empty;
 
     /// <summary>
+    /// API Key for ElevenLabs pronunciation provider (in-memory only).
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string ElevenLabsApiKey { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Encrypted ElevenLabs API Key for storage.
+    /// </summary>
+    public string EncryptedElevenLabsApiKey { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Voice ID for ElevenLabs TTS (e.g., "21m00Tcm4TlvDq8ikWAM" for Rachel).
+    /// </summary>
+    public string ElevenLabsVoiceId { get; set; } = "21m00Tcm4TlvDq8ikWAM";
+
+    /// <summary>
     /// Font size for the main translation text.
     /// </summary>
     public double FontSize { get; set; } = 18;

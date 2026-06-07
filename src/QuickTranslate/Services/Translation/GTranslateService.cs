@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using GTranslate.Translators;
+using QuickTranslate.Helpers;
 using QuickTranslate.Models;
 using QuickTranslate.Services.Translators;
 
@@ -54,22 +55,7 @@ public class GTranslateService : ITranslationService, IDisposable
         }
     }
 
-    public LanguageOption[] GetSupportedLanguages()
-    {
-        // GTranslate exposes all ISO-639-1 languages
-        // We will map its Language dictionary to our LanguageOption
-        var langs = new System.Collections.Generic.List<LanguageOption>
-        {
-            new LanguageOption("Auto-detect", "auto")
-        };
-
-        foreach (var lang in GTranslate.Language.LanguageDictionary.Values)
-        {
-            langs.Add(new LanguageOption(lang.Name, lang.ISO6391));
-        }
-
-        return langs.ToArray();
-    }
+    public LanguageOption[] GetSupportedLanguages() => LanguageData.GetAll();
 
     public async Task<TranslationModel> TranslateAsync(string text, string targetLanguage, string? sourceLanguage = null, System.Threading.CancellationToken cancellationToken = default)
     {

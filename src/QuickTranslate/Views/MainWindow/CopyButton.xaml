@@ -1,0 +1,26 @@
+<UserControl x:Class="QuickTranslate.Views.CopyButton"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             ToolTip="{Binding ToolTip, RelativeSource={RelativeSource Self}}">
+    <Button Command="{Binding Command, RelativeSource={RelativeSource AncestorType=UserControl}}"
+            Style="{StaticResource IconButtonStyle}"
+            Width="28" Height="26"
+            Margin="2,0,0,0">
+        <Path Stretch="Uniform" Width="14" Height="14">
+            <Path.Style>
+                <Style TargetType="Path">
+                    <Setter Property="Data"
+                            Value="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z"/>
+                    <Setter Property="Fill" Value="#66bb6a"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsCopied, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                            <Setter Property="Data"
+                                    Value="M9,16.17L4.83,12L3.41,13.41L9,19L21,7L19.59,5.59L9,16.17Z"/>
+                            <Setter Property="Fill" Value="#66bb6a"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Path.Style>
+        </Path>
+    </Button>
+</UserControl>

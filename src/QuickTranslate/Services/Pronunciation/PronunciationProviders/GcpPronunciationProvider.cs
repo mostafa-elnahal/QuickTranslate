@@ -14,8 +14,8 @@ namespace QuickTranslate.Services.Providers;
 
 /// <summary>
 /// Pronunciation provider using the official Google Cloud Text-to-Speech REST API.
-/// Supports batch synthesis with exact word-timing via SSML mark timepoints,
-/// and streaming synthesis for low-latency playback of long texts.
+/// Note: Chirp3-HD voices do not support SSML_MARK timepointing, so word-level
+/// highlighting is not available for this provider.
 /// </summary>
 public class GcpPronunciationProvider : IPronunciationProvider, IDisposable
 {
@@ -32,6 +32,7 @@ public class GcpPronunciationProvider : IPronunciationProvider, IDisposable
     public string Name => Constants.PronunciationProviders.Gcp;
     public bool SupportsStreaming => true;
     public int MaxChunkSize => 4500; // 5000 byte limit minus SSML overhead
+    public TimingSupportLevel TimingSupport => TimingSupportLevel.None;
 
     public GcpPronunciationProvider(ISettingsService settingsService)
     {
@@ -108,7 +109,8 @@ public class GcpPronunciationProvider : IPronunciationProvider, IDisposable
     #region GCP-specific: Timepoints
 
     /// <summary>
-    /// Synthesizes audio with SSML mark timepoints for exact word-level synchronization.
+    /// Synthesizes audio via the GCP TTS REST API (no word-level timing).
+    /// Returns an empty timepoints list — Chirp3-HD does not support SSML_MARK.
     /// </summary>
     public async Task<PronunciationResult<(Uri AudioUri, IReadOnlyList<TimepointInfo> Timepoints)>>
         GetAudioWithTimepointsAsync(string text, string languageCode, bool slowMode)
@@ -120,15 +122,17 @@ public class GcpPronunciationProvider : IPronunciationProvider, IDisposable
                 return PronunciationResult<(Uri, IReadOnlyList<TimepointInfo>)>
                     .Failure("GCP API Key is missing. Please configure it in Settings.");
 
-            // Build SSML with <mark> tags between words
-            string ssml = BuildSsmlWithMarks(text, slowMode);
-
-            // Select voice based on language code
             string voiceName = SelectVoice(languageCode);
+
+            object input;
+            if (slowMode)
+                input = new { ssml = $"<speak><prosody rate=\"slow\">{EscapeXml(text)}</prosody></speak>" };
+            else
+                input = new { text };
 
             var requestBody = new
             {
-                input = new { ssml },
+                input,
                 voice = new
                 {
                     languageCode = NormalizeLanguageCode(languageCode),
@@ -138,8 +142,7 @@ public class GcpPronunciationProvider : IPronunciationProvider, IDisposable
                 {
                     audioEncoding = "LINEAR16",
                     sampleRateHertz = DefaultSampleRate
-                },
-                enableTimePointing = new[] { "SSML_MARK" }
+                }
             };
 
             string endpoint = $"{BaseEndpoint}?key={apiKey}";
@@ -186,20 +189,8 @@ public class GcpPronunciationProvider : IPronunciationProvider, IDisposable
             await File.WriteAllBytesAsync(tempPath, audioBytes);
             _audioCache[cacheKey] = tempPath;
 
-            // Extract timepoints
-            var timepoints = new List<TimepointInfo>();
-            if (root.TryGetProperty("timepoints", out var timepointsElement))
-            {
-                foreach (var tp in timepointsElement.EnumerateArray())
-                {
-                    string markName = tp.GetProperty("markName").GetString() ?? "";
-                    double timeSeconds = tp.GetProperty("timeSeconds").GetDouble();
-                    timepoints.Add(new TimepointInfo(markName, timeSeconds));
-                }
-            }
-
             return PronunciationResult<(Uri, IReadOnlyList<TimepointInfo>)>
-                .Success((new Uri(tempPath), timepoints));
+                .Success((new Uri(tempPath), Array.Empty<TimepointInfo>()));
         }
         catch (HttpRequestException ex)
         {
@@ -220,35 +211,6 @@ public class GcpPronunciationProvider : IPronunciationProvider, IDisposable
 
     #endregion
 
-    #region SSML Builder
-
-    /// <summary>
-    /// Builds SSML with mark tags between each word for timepoint tracking.
-    /// Example: <speak><mark name="w0"/>Hello <mark name="w1"/>world</speak>
-    /// </summary>
-    private static string BuildSsmlWithMarks(string text, bool slowMode)
-    {
-        var words = text.Split(new[] { ' ', '\r', '\n', '\t' }, StringSplitOptions.RemoveEmptyEntries);
-        var sb = new StringBuilder();
-        sb.Append("<speak>");
-
-        if (slowMode)
-            sb.Append("<prosody rate=\"slow\">");
-
-        for (int i = 0; i < words.Length; i++)
-        {
-            sb.Append($"<mark name=\"w{i}\"/>");
-            sb.Append(EscapeXml(words[i]));
-            if (i < words.Length - 1) sb.Append(' ');
-        }
-
-        if (slowMode)
-            sb.Append("</prosody>");
-
-        sb.Append("</speak>");
-        return sb.ToString();
-    }
-
     private static string EscapeXml(string text)
     {
         return text
@@ -258,8 +220,6 @@ public class GcpPronunciationProvider : IPronunciationProvider, IDisposable
             .Replace("\"", "&quot;")
             .Replace("'", "&apos;");
     }
-
-    #endregion
 
     #region Voice Selection
 

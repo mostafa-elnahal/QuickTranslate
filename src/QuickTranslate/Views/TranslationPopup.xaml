@@ -38,7 +38,6 @@
     </Window.Style>
     
     <Window.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <converters:BoolToFlowDirectionConverter x:Key="BoolToFlowDirection"/>
         <converters:StringToVisibilityConverter x:Key="StringToVis"/>
         <converters:MultiplyConverter x:Key="MultiplyConverter"/>
@@ -200,7 +199,7 @@
                                       Width="16" Height="16"
                                       Stretch="Uniform"
                                       RenderTransformOrigin="0.5, 0.5"
-                                      Visibility="{Binding DataContext.IsPronunciationLoading, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
+                                       Visibility="{Binding DataContext.IsPronunciationLoading, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}">
                                     <Path.RenderTransform>
                                         <RotateTransform Angle="0"/>
                                     </Path.RenderTransform>
@@ -234,7 +233,7 @@
                                            FontFamily="{Binding DataContext.TranslationFontFamily, RelativeSource={RelativeSource AncestorType=Window}}"
                                            FontStyle="Italic"
                                            Foreground="{StaticResource TextSecondaryBrush}"
-                                           Visibility="{Binding HasPhonetics, Converter={StaticResource BoolToVis}}"
+                                            Visibility="{Binding HasPhonetics, Converter={StaticResource BoolToVisibility}}"
                                            Margin="0,2,0,0"/>
                             </StackPanel>
                         </Grid>
@@ -322,7 +321,7 @@
                                     
                                     <!-- Definitions List (Collapsible) -->
                                     <ItemsControl ItemsSource="{Binding Definitions}"
-                                                  Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVis}}">
+                                                   Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibility}}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <!-- Dynamic Template based on Parent EntryType -->

@@ -6,6 +6,7 @@ using QuickTranslate.Helpers;
 using QuickTranslate.Services.Audio;
 using System.Net.Http;
 using System.IO;
+using NAudio.Wave;
 
 namespace QuickTranslate.Services.Providers;
 
@@ -30,6 +31,8 @@ public class GooglePronunciationProvider : IPronunciationProvider, IDisposable
     /// </summary>
     public int MaxChunkSize => 150;
 
+    public TimingSupportLevel TimingSupport => TimingSupportLevel.Estimated;
+
     /// <summary>
     /// Streams audio by downloading MP3 chunks and decoding to PCM.
     /// </summary>
@@ -42,10 +45,6 @@ public class GooglePronunciationProvider : IPronunciationProvider, IDisposable
     {
         try
         {
-            // Add a small delay between chunk requests to avoid 429 (Rate Limit) 
-            // errors from Google's unofficial endpoint.
-            await Task.Delay(300, cancellationToken);
-
             var audioResult = await GetAudioUriAsync(text, languageCode, slowMode);
             if (!audioResult.IsSuccess || audioResult.Data == null)
                 return PronunciationResult<bool>.Failure(audioResult.Message);
@@ -63,42 +62,54 @@ public class GooglePronunciationProvider : IPronunciationProvider, IDisposable
                     $"Google TTS Error: {response.StatusCode} ({(int)response.StatusCode}). {errorDetail}");
             }
 
-            using var networkStream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            
-            NAudio.Wave.IMp3FrameDecompressor? decompressor = null;
+            var mediaType = response.Content.Headers.ContentType?.MediaType;
+            if (mediaType == null || !mediaType.StartsWith("audio/", StringComparison.OrdinalIgnoreCase))
+            {
+                string preview = await response.Content.ReadAsStringAsync(cancellationToken);
+                preview = preview.Length > 200 ? preview[..200] + "..." : preview;
+                return PronunciationResult<bool>.Failure(
+                    $"Google returned non-audio response ({mediaType ?? "none"}). Preview: {preview}");
+            }
+
+            var mp3Bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+
+            var tempPath = Path.Combine(Path.GetTempPath(), $"qt_{Guid.NewGuid():N}.mp3");
             try
             {
-                NAudio.Wave.Mp3Frame? frame;
-                while ((frame = NAudio.Wave.Mp3Frame.LoadFromStream(networkStream)) != null)
+                await File.WriteAllBytesAsync(tempPath, mp3Bytes, cancellationToken);
+
+                using var reader = new MediaFoundationReader(tempPath);
+                var fmt = reader.WaveFormat;
+                player.Initialize(fmt.SampleRate, fmt.Channels, fmt.BitsPerSample);
+
+                var pcmBuffer = new byte[reader.Length];
+                int totalRead = 0;
+                while (totalRead < pcmBuffer.Length)
                 {
-                    if (cancellationToken.IsCancellationRequested) break;
-
-                    if (decompressor == null)
-                    {
-                        var waveFormat = new NAudio.Wave.Mp3WaveFormat(
-                            frame.SampleRate, frame.ChannelMode == NAudio.Wave.ChannelMode.Mono ? 1 : 2,
-                            frame.FrameLength, frame.BitRate);
-                        decompressor = new NAudio.Wave.AcmMp3FrameDecompressor(waveFormat);
-                        
-                        player.Initialize(frame.SampleRate, frame.ChannelMode == NAudio.Wave.ChannelMode.Mono ? 1 : 2, 16);
-                    }
-
-                    byte[] pcmBuffer = new byte[decompressor.OutputFormat.AverageBytesPerSecond];
-                    int bytesDecompressed = decompressor.DecompressFrame(frame, pcmBuffer, 0);
-                    if (bytesDecompressed > 0)
-                    {
-                        byte[] pcmChunk = new byte[bytesDecompressed];
-                        Buffer.BlockCopy(pcmBuffer, 0, pcmChunk, 0, bytesDecompressed);
-                        await player.EnqueueSamplesAsync(pcmChunk, cancellationToken);
-                    }
+                    int read = reader.Read(pcmBuffer, totalRead,
+                        (int)Math.Min(pcmBuffer.Length - totalRead, 8192));
+                    if (read == 0) break;
+                    totalRead += read;
                 }
+
+                if (totalRead > 0)
+                {
+                    var actualPcm = totalRead < pcmBuffer.Length ? pcmBuffer[..totalRead] : pcmBuffer;
+                    await player.EnqueueSamplesAsync(actualPcm, cancellationToken);
+                    player.RecordChunkBoundary();
+                    player.Play();
+                }
+
+                return PronunciationResult<bool>.Success(true);
             }
             finally
             {
-                decompressor?.Dispose();
+                if (File.Exists(tempPath))
+                    File.Delete(tempPath);
             }
-
-            player.Play();
+        }
+        catch (OperationCanceledException)
+        {
             return PronunciationResult<bool>.Success(true);
         }
         catch (HttpRequestException ex)
@@ -113,7 +124,7 @@ public class GooglePronunciationProvider : IPronunciationProvider, IDisposable
         }
         catch (Exception ex)
         {
-            return PronunciationResult<bool>.Failure("Google streaming failed.", ex);
+            return PronunciationResult<bool>.Failure($"Google streaming failed: {ex.GetType().Name}: {ex.Message}", ex);
         }
     }
 

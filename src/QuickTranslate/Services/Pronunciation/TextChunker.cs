@@ -1,97 +1,69 @@
 using System;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
 using System.Text;
-using QuickTranslate.Models;
-using System.Linq;
 
 namespace QuickTranslate.Services.Pronunciation;
 
 /// <summary>
-/// Proives methods to split text into chunks suitable for streaming TTS.
+/// Splits text into chunks suitable for streaming TTS, respecting provider character limits.
 /// </summary>
 public static class TextChunker
 {
-    public struct ChunkResult
-    {
-        public string Text;
-        public int StartWordIndex;
-        public int EndWordIndex;
-    }
-
     /// <summary>
-    /// Splits words into chunks using an adaptive strategy up to a maximum limit.
-    /// Returns a list of strings and their corresponding word indices.
+    /// Splits text into chunks using an adaptive strategy up to <paramref name="maxChunkSize"/>.
+    /// Returns the chunks and a mapping from word index to chunk index.
     /// </summary>
-    public static IEnumerable<ChunkResult> ChunkText(IList<WordItem> words, int maxChunkSize = 4000)
+    /// <param name="text">The text to split.</param>
+    /// <param name="maxChunkSize">Maximum characters per chunk.</param>
+    /// <param name="firstChunkSize">
+    /// Optional explicit size for the first chunk. If null, defaults to min(150, maxChunkSize).
+    /// </param>
+    public static (IEnumerable<string> Chunks, int[] WordToChunkIndex) ChunkText(
+        string text, int maxChunkSize = 4000, int? firstChunkSize = null)
     {
-        if (words == null || words.Count == 0) yield break;
+        if (string.IsNullOrEmpty(text))
+            return (Array.Empty<string>(), Array.Empty<int>());
 
-        // Configuration
-        int firstChunkSize = Math.Min(150, maxChunkSize); // Keep first chunk small for low-latency
+        var words = text.Split(new[] { ' ', '\r', '\n', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length == 0)
+            return (Array.Empty<string>(), Array.Empty<int>());
+
+        int targetFirst = firstChunkSize ?? Math.Min(150, maxChunkSize);
         int standardChunkSize = maxChunkSize;
 
+        var chunks = new List<string>();
+        var wordToChunk = new int[words.Length];
         var currentChunk = new StringBuilder();
-        int currentTargetSize = firstChunkSize;
-        int startIndex = 0;
+        int currentTargetSize = targetFirst;
 
-        for (int i = 0; i < words.Count; i++)
+        for (int i = 0; i < words.Length; i++)
         {
-            var word = words[i].Text;
-            
-            // If adding the next word exceeds the target size, yield the current chunk
-            // (Unless the word itself is longer than the target size, in which case we still must yield what we have first)
+            var word = words[i];
+
             if (currentChunk.Length + word.Length + 1 > currentTargetSize && currentChunk.Length > 0)
             {
-                yield return new ChunkResult { 
-                    Text = currentChunk.ToString().Trim(),
-                    StartWordIndex = startIndex,
-                    EndWordIndex = i
-                };
-                
+                chunks.Add(currentChunk.ToString().Trim());
                 currentChunk.Clear();
-                startIndex = i;
 
-                // Gradual Ramp-Up Strategy:
                 if (currentTargetSize < standardChunkSize)
                 {
-                    if (currentTargetSize == firstChunkSize) 
-                        currentTargetSize = Math.Min(firstChunkSize * 2, standardChunkSize);
-                    else if (currentTargetSize < standardChunkSize / 2) 
+                    if (currentTargetSize == targetFirst)
+                        currentTargetSize = Math.Min(targetFirst * 2, standardChunkSize);
+                    else if (currentTargetSize < standardChunkSize / 2)
                         currentTargetSize = Math.Min(currentTargetSize * 3, standardChunkSize);
-                    else 
+                    else
                         currentTargetSize = standardChunkSize;
                 }
             }
 
             if (currentChunk.Length > 0) currentChunk.Append(" ");
             currentChunk.Append(word);
+            wordToChunk[i] = chunks.Count;
         }
 
         if (currentChunk.Length > 0)
-        {
-            yield return new ChunkResult {
-                Text = currentChunk.ToString().Trim(),
-                StartWordIndex = startIndex,
-                EndWordIndex = words.Count
-            };
-        }
-    }
+            chunks.Add(currentChunk.ToString().Trim());
 
-    /// <summary>
-    /// Legacy support for raw string chunking.
-    /// </summary>
-    public static IEnumerable<string> ChunkText(string text, int maxChunkSize = 4000)
-    {
-        if (string.IsNullOrEmpty(text)) yield break;
-        
-        var words = text.Split(new[] { ' ', '\r', '\n', '\t' }, StringSplitOptions.RemoveEmptyEntries)
-                       .Select(w => new WordItem { Text = w })
-                       .ToList();
-
-        foreach (var result in ChunkText(words, maxChunkSize))
-        {
-            yield return result.Text;
-        }
+        return (chunks, wordToChunk);
     }
 }

@@ -1,0 +1,537 @@
+<Window x:Class="QuickTranslate.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:converters="clr-namespace:QuickTranslate.Converters"
+        xmlns:controls="clr-namespace:QuickTranslate.Views"
+        mc:Ignorable="d"
+        Title="QuickTranslate"
+        Icon="pack://application:,,,/Assets/icon.ico"
+        Width="850" Height="560"
+        MinWidth="550" MinHeight="450"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType"
+        Topmost="False"
+        ShowInTaskbar="True"
+        ResizeMode="CanResize"
+        Visibility="{Binding IsVisible, Converter={StaticResource BoolToVisibility}}">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="0" ResizeBorderThickness="5" GlassFrameThickness="0" UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <converters:MultiplyConverter x:Key="MultiplyConverter"/>
+        <converters:InverseBoolConverter x:Key="InverseBool"/>
+        <Style x:Key="SpeakerIconStyle" TargetType="Path">
+            <Setter Property="Data" Value="M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.84 14,18.7V20.77C18,19.86 21,16.28 21,12C21,7.72 18,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.76 16.5,12M3,9V15H7L12,20V4L7,9H3Z"/>
+            <Setter Property="Fill" Value="#4fc3f7"/>
+            <Setter Property="Width" Value="14"/>
+            <Setter Property="Height" Value="14"/>
+            <Setter Property="Stretch" Value="Uniform"/>
+        </Style>
+    </Window.Resources>
+
+    <Border Background="{StaticResource WindowBackgroundBrush}"
+            BorderBrush="{StaticResource BorderBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            ClipToBounds="True">
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="32"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- ════════════════════════════════════════════ -->
+            <!-- Row 0: Title Bar                           -->
+            <!-- ════════════════════════════════════════════ -->
+            <Grid Grid.Row="0" Background="#1c1c1c" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Left: App icon + name -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center">
+                    <Border Width="18" Height="18" Background="#007ACC" CornerRadius="3" Margin="0,0,8,0">
+                        <TextBlock Text="文" FontSize="11" FontWeight="Bold" Foreground="White"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <TextBlock Text="QuickTranslate" FontSize="12" FontWeight="SemiBold"
+                               Foreground="#e3e3e3" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Center: drag area spacer -->
+                <TextBlock Grid.Column="1" Text=" " FontSize="1"/>
+
+                <!-- Right: Window controls -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Height="32">
+                    <!-- Minimize -->
+                    <Button x:Name="MinimizeButton" Width="46" Height="32"
+                            Style="{StaticResource IconButtonStyle}"
+                            Click="MinimizeButton_Click"
+                            ToolTip="Minimize">
+                        <Rectangle Width="10" Height="1" Fill="#cccccc" Margin="0,0,0,0"/>
+                    </Button>
+
+                    <!-- Maximize / Restore -->
+                    <Button x:Name="MaximizeButton" Width="46" Height="32"
+                            Style="{StaticResource IconButtonStyle}"
+                            Click="MaximizeButton_Click"
+                            ToolTip="Maximize">
+                        <Grid Width="10" Height="10">
+                            <Border x:Name="MaximizeIcon" BorderBrush="#cccccc" BorderThickness="1.2" Width="10" Height="10"/>
+                            <Border x:Name="RestoreIcon" BorderBrush="#cccccc" BorderThickness="1.2" Width="8" Height="8"
+                                    Visibility="Collapsed" Margin="2,0,0,2"/>
+                        </Grid>
+                    </Button>
+
+                    <!-- Close -->
+                    <Button x:Name="CloseButton" Width="46" Height="32"
+                            Background="Transparent" BorderThickness="0"
+                            Click="CloseButton_Click"
+                            ToolTip="Close">
+                        <Path Data="M0,0 L8,8 M8,0 L0,8" Stroke="#cccccc" StrokeThickness="1.5"
+                              Width="10" Height="10" Stretch="Uniform"/>
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="border" Background="{TemplateBinding Background}">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="border" Property="Background" Value="#e81123"/>
+                                                </Trigger>
+                                                <Trigger Property="IsPressed" Value="True">
+                                                    <Setter TargetName="border" Property="Background" Value="#f1707a"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+            <!-- ════════════════════════════════════════════ -->
+            <!-- Row 1: Language Selectors Bar                -->
+            <!-- ════════════════════════════════════════════ -->
+            <Border Grid.Row="1" Background="#181818" BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="0,0,0,1" Padding="12,6">
+                <Grid>
+                    <!-- Language selectors (centered) — rendered first -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <!-- Source Language Dropdown -->
+                        <ComboBox ItemsSource="{Binding Languages}"
+                                  SelectedValue="{Binding SourceLanguage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  SelectedValuePath="Code"
+                                  TextSearch.TextPath="DisplayName"
+                                  Style="{StaticResource SettingsComboBoxStyle}"
+                                  MinWidth="150" Height="28"
+                                  FontSize="12"
+                                  ItemTemplate="{StaticResource LanguageItemTemplate}"/>
+
+                        <!-- Swap Button -->
+                        <Button Command="{Binding SwapLanguagesCommand}"
+                                Style="{StaticResource IconButtonStyle}"
+                                Margin="8,0"
+                                Width="28" Height="28"
+                                Padding="4"
+                                ToolTip="Swap languages">
+                            <Path Data="M2,5 L11,5 M7,2 L11,5 L7,8 M12,11 L3,11 M7,8 L3,11 L7,14"
+                                  Stroke="{StaticResource AccentBrush}" StrokeThickness="1.5"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  StrokeLineJoin="Round"
+                                  Stretch="Uniform" Width="14" Height="14"/>
+                        </Button>
+
+                        <!-- Target Language Dropdown -->
+                        <ComboBox ItemsSource="{Binding TargetLanguages}"
+                                  SelectedValue="{Binding TargetLanguage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  SelectedValuePath="Code"
+                                  TextSearch.TextPath="DisplayName"
+                                  Style="{StaticResource SettingsComboBoxStyle}"
+                                  MinWidth="150" Height="28"
+                                  FontSize="12"
+                                  ItemTemplate="{StaticResource LanguageItemTemplate}"/>
+                    </StackPanel>
+
+                    <!-- Gear / Settings button (left side) — rendered second, on top -->
+                    <Button x:Name="SettingsButton"
+                            Style="{StaticResource IconButtonStyle}"
+                            HorizontalAlignment="Left" VerticalAlignment="Center"
+                            Width="28" Height="28"
+                            Padding="4"
+                            ToolTip="Quick Settings"
+                            Command="{Binding ToggleSettingsPopupCommand}">
+                        <Path Data="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94zM12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"
+                              Fill="#cccccc" Stretch="Uniform" Width="16" Height="16"/>
+                    </Button>
+
+                    <!-- Settings Popup -->
+                    <Popup x:Name="SettingsPopup"
+                           IsOpen="{Binding IsSettingsPopupOpen, Mode=TwoWay}"
+                           PlacementTarget="{Binding ElementName=SettingsButton}"
+                           Placement="Bottom"
+                           StaysOpen="False"
+                           AllowsTransparency="True"
+                           PopupAnimation="Fade"
+                           VerticalOffset="4">
+                        <controls:SettingsPopup/>
+                    </Popup>
+                </Grid>
+            </Border>
+
+            <!-- ════════════════════════════════════════════ -->
+            <!-- Row 2: Main Dual-Panel Translation Area      -->
+            <!-- ════════════════════════════════════════════ -->
+            <Grid Grid.Row="2" Background="#141414">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- ── Left: Source Input Panel ── -->
+                <Grid Grid.Column="0" Margin="0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Text Input -->
+                    <Border Grid.Row="0" Padding="14,24,32,12" Background="Transparent">
+                        <TextBox x:Name="SourceTextBox"
+                                 Text="{Binding SourceText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 FontSize="{Binding TranslationFontSize}"
+                                 FontFamily="{Binding TranslationFontFamily}"
+                                 Foreground="#e3e3e3"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 Padding="0"
+                                 CaretBrush="#e3e3e3"
+                                 IsInactiveSelectionHighlightEnabled="True"
+                                 VerticalScrollBarVisibility="Auto"
+                                 HorizontalScrollBarVisibility="Disabled"
+                                 MouseDoubleClick="SourceTextBox_MouseDoubleClick"
+                                 GotKeyboardFocus="SourceTextBox_GotKeyboardFocus"/>
+                    </Border>
+
+                    <!-- Placeholder text -->
+                    <TextBlock Grid.Row="0"
+                               Text="Type or paste text here to translate..."
+                               Foreground="#555555"
+                               FontSize="{Binding TranslationFontSize}"
+                               FontFamily="{Binding TranslationFontFamily}"
+                               Padding="14,24,32,12"
+                                IsHitTestVisible="False">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SourceText.Length, Mode=OneWay}" Value="0">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                    <!-- Clear button -->
+                    <Button Grid.Row="0"
+                            Command="{Binding ClearSourceTextCommand}"
+                            Style="{StaticResource IconButtonStyle}"
+                            HorizontalAlignment="Right" VerticalAlignment="Top"
+                            Margin="0,6,6,0"
+                            Width="22" Height="22"
+                            ToolTip="Clear text"
+                            Visibility="{Binding SourceText, Converter={StaticResource StringToVisibilityConverter}}">
+                        <Path Data="M0,0 L8,8 M8,0 L0,8" Stroke="#e05555" StrokeThickness="1.5"
+                              Width="8" Height="8" Stretch="Uniform"/>
+                    </Button>
+
+                    <!-- Source Footer -->
+                    <Border Grid.Row="1" Background="#181818" BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="0,1,0,0" Padding="10,4,10,4">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Left actions -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                <!-- Pronounce -->
+                                <Button Command="{Binding PlaySourcePronunciationCommand}"
+                                        Style="{StaticResource IconButtonStyle}"
+                                        Width="28" Height="26"
+                                        ToolTip="Pronounce source text">
+                                    <Path Style="{StaticResource SpeakerIconStyle}"/>
+                                </Button>
+
+                                <!-- Copy source -->
+                                <controls:CopyButton Command="{Binding CopySourceTextCommand}"
+                                                     IsCopied="{Binding IsSourceCopied}"
+                                                     ToolTip="Copy source text"/>
+                            </StackPanel>
+
+                            <!-- Character count -->
+                            <TextBlock Grid.Column="2"
+                                       Text="{Binding SourceText.Length, StringFormat='{}{0} / 5000 chars'}"
+                                       Foreground="#666666"
+                                       FontSize="10"
+                                       VerticalAlignment="Center"
+                                       FontFamily="Consolas"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- ── Center Divider ── -->
+                <Border Grid.Column="1" Width="1"
+                        Background="{StaticResource BorderBrush}"/>
+
+                <!-- ── Right: Translation Output Panel ── -->
+                <Grid Grid.Column="2" Background="#181818">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Loading overlay -->
+                    <Border Grid.Row="0"
+                            Background="#40181818"
+                            Visibility="{Binding IsTranslating, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <TextBlock Text="Translating..." Foreground="#007ACC"
+                                       FontSize="13" FontWeight="SemiBold"
+                                       HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Translation Output -->
+                    <Border Grid.Row="0" Padding="14,24,32,12" Background="Transparent">
+                        <TextBox Text="{Binding TranslatedText, Mode=OneWay}"
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 FontSize="{Binding TranslationFontSize}"
+                                 FontFamily="{Binding TranslationFontFamily}"
+                                 Foreground="#81b9ef"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 Padding="0"
+                                 IsReadOnly="True"
+                                 IsInactiveSelectionHighlightEnabled="True"
+                                 VerticalScrollBarVisibility="Auto"
+                                 HorizontalScrollBarVisibility="Disabled"
+                                 MouseDoubleClick="TargetTextBox_MouseDoubleClick"/>
+                    </Border>
+
+                    <!-- Placeholder content -->
+                    <Border Grid.Row="0"
+                            IsHitTestVisible="False"
+                            Background="#181818">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding TranslatedText.Length, Mode=OneWay}" Value="0"/>
+                                            <Condition Binding="{Binding IsTranslating}" Value="False"/>
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <Path Data="M12.87 15.07l-2.54-2.51.03-.03A17.52 17.52 0 0014.07 6H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"
+                                  Fill="#3a3a3a" Stretch="Uniform" Width="48" Height="48"/>
+                            <TextBlock Text="Translation will appear here"
+                                       Foreground="#555555"
+                                       FontSize="12"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,10,0,0"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Target Footer -->
+                    <Border Grid.Row="1" Background="#181818" BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="0,1,0,0" Padding="10,4,10,4">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Left actions -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                <!-- Pronounce -->
+                                <Button Command="{Binding PlayTargetPronunciationCommand}"
+                                        Style="{StaticResource IconButtonStyle}"
+                                        Width="28" Height="26"
+                                        ToolTip="Pronounce translation">
+                                    <Path Style="{StaticResource SpeakerIconStyle}"/>
+                                </Button>
+
+                                <!-- Copy translation -->
+                                <controls:CopyButton Command="{Binding CopyTranslatedTextCommand}"
+                                                     IsCopied="{Binding IsTargetCopied}"
+                                                     ToolTip="Copy translation"/>
+
+                                <!-- Bookmark -->
+                                <Button Command="{Binding ToggleBookmarkCommand}"
+                                        Style="{StaticResource IconButtonStyle}"
+                                        Width="28" Height="26"
+                                        ToolTip="Bookmark translation"
+                                        Margin="2,0,0,0">
+                                    <Path Stretch="Uniform" Width="14" Height="14"
+                                          Data="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z">
+                                        <Path.Style>
+                                            <Style TargetType="Path">
+                                                <Setter Property="Fill" Value="#ffb300"/>
+                                                <Setter Property="Opacity" Value="0.4"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsBookmarked}" Value="True">
+                                                        <Setter Property="Opacity" Value="1"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Path.Style>
+                                    </Path>
+                                </Button>
+                            </StackPanel>
+
+                            <!-- Translate button -->
+                            <Button Grid.Column="2"
+                                    Command="{Binding TranslateCommand}"
+                                    Content="Translate"
+                                    Style="{StaticResource AccentButtonStyle}"
+                                    Padding="12,4"
+                                    Height="26"
+                                    ToolTip="Translate now"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Grid>
+
+            <!-- ════════════════════════════════════════════ -->
+            <!-- Row 3: Bottom Collapsible Panel              -->
+            <!-- ════════════════════════════════════════════ -->
+            <Border Grid.Row="3" Background="#1f1f1f"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="0,1,0,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                <!-- ── Panel Header ── -->
+                <Border Grid.Row="0" Background="#181818" Height="36"
+                        BorderBrush="{StaticResource BorderBrush}"
+                        BorderThickness="0,0,0,1">
+                    <Grid Margin="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Dictionary tab button -->
+                        <Button Grid.Column="0"
+                                Command="{Binding SetActiveBottomTabCommand}"
+                                CommandParameter="dictionary"
+                                Padding="14,0"
+                                Height="36">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Path Stretch="Uniform" Width="12" Height="12"
+                                      Data="M3,3 L12,5 L21,3 L21,17 L12,19 L3,17 Z M3,3 L12,5 M3,17 L12,19 M21,3 L12,5 M21,17 L12,19"
+                                      Fill="{StaticResource AccentBrush}"
+                                      Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Dictionary" FontSize="11" Foreground="#e3e3e3"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource IconButtonStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ActiveBottomTab}" Value="dictionary">
+                                            <Setter Property="Background" Value="#1f1f1f"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+
+                        <!-- Collapse toggle -->
+                        <ToggleButton Grid.Column="2"
+                                      IsChecked="{Binding IsBottomPanelExpanded, Mode=TwoWay}"
+                                      Background="Transparent" BorderThickness="0"
+                                      Width="36" Height="36"
+                                      Cursor="Hand"
+                                      ToolTip="Toggle panel">
+                            <Path Stretch="Uniform" Width="10" Height="10"
+                                  Data="M0,3 L5,8 L10,3"
+                                  Stroke="#888888" StrokeThickness="1.5"
+                                  Fill="Transparent">
+                                <Path.Style>
+                                    <Style TargetType="Path">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsBottomPanelExpanded}" Value="True">
+                                                <Setter Property="Data" Value="M3,0 L8,5 L3,10"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Path.Style>
+                            </Path>
+                            <ToggleButton.Style>
+                                <Style TargetType="ToggleButton">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ToggleButton">
+                                                <Border Background="{TemplateBinding Background}">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#2d2d2d"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ToggleButton.Style>
+                        </ToggleButton>
+                    </Grid>
+                </Border>
+
+                <!-- ── Panel Content (Dictionary Tab) ── -->
+                <Border Grid.Row="1"
+                        Visibility="{Binding IsBottomPanelExpanded, Converter={StaticResource BoolToVisibility}}">
+                    <controls:DictionaryPanel/>
+                </Border>
+            </Grid>
+        </Border>
+        </Grid>
+    </Border>
+</Window>

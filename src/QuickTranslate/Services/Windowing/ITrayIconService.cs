@@ -22,6 +22,11 @@ public interface ITrayIconService : IDisposable
     event EventHandler OcrRequested;
 
     /// <summary>
+    /// Event triggered when the "Show Main Window" menu item is clicked.
+    /// </summary>
+    event EventHandler ShowMainWindowRequested;
+
+    /// <summary>
     /// Initializes and shows the tray icon.
     /// </summary>
     void Initialize();

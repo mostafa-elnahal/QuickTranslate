@@ -115,6 +115,14 @@ public partial class SettingsWindow : Window
         }
     }
 
+    private void ElevenLabsApiKeyBox_PasswordChanged(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is SettingsViewModel vm)
+        {
+            vm.ElevenLabsApiKey = ElevenLabsApiKeyBox.Password;
+        }
+    }
+
     protected override void OnContentRendered(EventArgs e)
     {
         base.OnContentRendered(e);
@@ -127,6 +135,10 @@ public partial class SettingsWindow : Window
             if (!string.IsNullOrEmpty(vm.GcpApiKey))
             {
                 GcpApiKeyBox.Password = vm.GcpApiKey;
+            }
+            if (!string.IsNullOrEmpty(vm.ElevenLabsApiKey))
+            {
+                ElevenLabsApiKeyBox.Password = vm.ElevenLabsApiKey;
             }
         }
     }

@@ -32,6 +32,7 @@ public partial class ScreenSelectionOverlay : Window
     private Bitmap? _screenBitmap;
     private DpiScale _dpiScale;
     private Point _absoluteWindowPosition;
+    private Point _captureOrigin;
     private ScreenCaptureResult? _capturedResult;
 
     /// <summary>Fired when the user has drawn a valid selection rectangle.</summary>
@@ -67,6 +68,12 @@ public partial class ScreenSelectionOverlay : Window
         // Wire up events
         Closing += (_, _) => CleanupResources();
 
+        // Capture the entire virtual screen BEFORE showing the overlay window,
+        // so that any popup menus (right-click, dropdown) in the foreground
+        // app are still visible — they would be dismissed once this window
+        // steals focus via Show/Activate below.
+        _screenBitmap = CaptureVirtualScreen();
+
         // Show window maximized on the current screen
         WindowState = WindowState.Maximized;
         Show();
@@ -79,8 +86,8 @@ public partial class ScreenSelectionOverlay : Window
         // Set up the clipping geometry for the full window
         FullWindow.Rect = new Rect(0, 0, Width, Height);
 
-        // Capture the screen behind this window
-        SetImageToBackground();
+        // Display the pre-captured screenshot as the frozen background
+        BackgroundImage.Source = BitmapToImageSource(_screenBitmap);
 
         // Set cursor to crosshair
         Cursor = Cursors.Cross;
@@ -148,6 +155,38 @@ public partial class ScreenSelectionOverlay : Window
 
         NativeMethods.BitBlt(hdcDest, 0, 0, windowWidth, windowHeight, hdcSrc,
             correctedLeft, correctedTop, NativeMethods.SRCCOPY_CAPTUREBLT);
+
+        NativeMethods.SelectObject(hdcDest, hOld);
+        NativeMethods.DeleteDC(hdcDest);
+        NativeMethods.ReleaseDC(IntPtr.Zero, hdcSrc);
+
+        Bitmap bmp = System.Drawing.Image.FromHbitmap(hBitmap);
+        NativeMethods.DeleteObject(hBitmap);
+
+        return bmp;
+    }
+
+    /// <summary>
+    /// Captures the entire virtual desktop (all monitors) silently, without
+    /// requiring any window to be shown. Used before the overlay window is
+    /// displayed so that transient UI (popup menus, dropdowns) is still visible.
+    /// </summary>
+    private Bitmap CaptureVirtualScreen()
+    {
+        int screenLeft = NativeMethods.GetSystemMetrics(NativeMethods.SM_XVIRTUALSCREEN);
+        int screenTop = NativeMethods.GetSystemMetrics(NativeMethods.SM_YVIRTUALSCREEN);
+        int screenWidth = NativeMethods.GetSystemMetrics(NativeMethods.SM_CXVIRTUALSCREEN);
+        int screenHeight = NativeMethods.GetSystemMetrics(NativeMethods.SM_CYVIRTUALSCREEN);
+
+        _captureOrigin = new Point(screenLeft, screenTop);
+
+        IntPtr hdcSrc = NativeMethods.GetWindowDC(IntPtr.Zero);
+        IntPtr hdcDest = NativeMethods.CreateCompatibleDC(hdcSrc);
+        IntPtr hBitmap = NativeMethods.CreateCompatibleBitmap(hdcSrc, screenWidth, screenHeight);
+        IntPtr hOld = NativeMethods.SelectObject(hdcDest, hBitmap);
+
+        NativeMethods.BitBlt(hdcDest, 0, 0, screenWidth, screenHeight, hdcSrc,
+            screenLeft, screenTop, NativeMethods.SRCCOPY_CAPTUREBLT);
 
         NativeMethods.SelectObject(hdcDest, hOld);
         NativeMethods.DeleteDC(hdcDest);
@@ -259,9 +298,9 @@ public partial class ScreenSelectionOverlay : Window
             double height = Math.Max(1, Math.Round(bottomRightPhysical.Y - topLeftPhysical.Y));
 
             // Shift into the coordinate space of the captured full-screen bitmap
-            // (The bitmap includes the multi-monitor offset captured in _absoluteWindowPosition)
-            double xOffset = topLeftPhysical.X - _absoluteWindowPosition.X;
-            double yOffset = topLeftPhysical.Y - _absoluteWindowPosition.Y;
+            // (The bitmap covers the entire virtual screen starting at _captureOrigin)
+            double xOffset = topLeftPhysical.X - _captureOrigin.X;
+            double yOffset = topLeftPhysical.Y - _captureOrigin.Y;
 
             // Create absolute screen rectangle
             Rect absoluteRect = new(xOffset, yOffset, width, height);
@@ -380,6 +419,15 @@ public partial class ScreenSelectionOverlay : Window
     private static class NativeMethods
     {
         public const uint MONITOR_DEFAULTTONEAREST = 2;
+
+        // Virtual desktop bounds for pre-capture (before overlay is shown)
+        public const int SM_XVIRTUALSCREEN = 76;
+        public const int SM_YVIRTUALSCREEN = 77;
+        public const int SM_CXVIRTUALSCREEN = 78;
+        public const int SM_CYVIRTUALSCREEN = 79;
+
+        [DllImport("user32.dll")]
+        public static extern int GetSystemMetrics(int nIndex);
 
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]

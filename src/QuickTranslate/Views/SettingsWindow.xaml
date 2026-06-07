@@ -19,6 +19,43 @@
         <DataTemplate DataType="{x:Type models:LanguageOption}">
             <TextBlock Text="{Binding DisplayName}"/>
         </DataTemplate>
+
+        <Style x:Key="SettingsPasswordBoxStyle" TargetType="PasswordBox">
+            <Setter Property="Background" Value="#2D2D30"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="#3E3E42"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="6,2"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="PasswordBox">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                SnapsToDevicePixels="True">
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          Focusable="false"
+                                          HorizontalScrollBarVisibility="Hidden"
+                                          VerticalScrollBarVisibility="Hidden"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="true">
+                                <Setter TargetName="border" Property="BorderBrush" Value="#666666"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="true">
+                                <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="false">
+                                <Setter Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <WindowChrome.WindowChrome>
@@ -125,7 +162,9 @@
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="30"/>
+                                    <RowDefinition Height="30"/>
+                                    <RowDefinition Height="30"/>
                                     <RowDefinition Height="30"/>
                                     <RowDefinition Height="30"/>
                                 </Grid.RowDefinitions>
@@ -251,7 +290,7 @@
                                           ItemsSource="{Binding AvailableLanguages}"
                                           SelectedValue="{Binding DefaultSourceLanguage}"
                                           SelectedValuePath="Code"
-                                          DisplayMemberPath="DisplayName"
+                                          ItemTemplate="{StaticResource LanguageItemTemplate}"
                                           Style="{StaticResource SettingsComboBoxStyle}"
                                           VerticalAlignment="Center"
                                           Margin="0,2"/>
@@ -261,7 +300,7 @@
                                           ItemsSource="{Binding AvailableLanguages}"
                                           SelectedValue="{Binding DefaultTargetLanguage}"
                                           SelectedValuePath="Code"
-                                          DisplayMemberPath="DisplayName"
+                                          ItemTemplate="{StaticResource LanguageItemTemplate}"
                                           Style="{StaticResource SettingsComboBoxStyle}"
                                           VerticalAlignment="Center"
                                           Margin="0,2"/>
@@ -352,24 +391,27 @@
                     <!-- Pronunciation Section -->
                     <StackPanel Visibility="{Binding SelectedCategory, Converter={StaticResource CategoryToVisibility}, ConverterParameter=Pronunciation}">
                          <GroupBox Header="Provider Settings" Style="{StaticResource SettingsGroupBoxStyle}">
-                            <Grid Margin="12,4">
+                            <Grid Margin="12,8,12,10">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="140"/>
+                                    <ColumnDefinition Width="170"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
-                                    <RowDefinition Height="30"/>
-                                    <RowDefinition Height="30"/>
-                                    <RowDefinition Height="30"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 
-                                <TextBlock Grid.Row="0" Text="Provider:" VerticalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <TextBlock Grid.Row="0" Text="Provider:" VerticalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,12,8"/>
                                 <ComboBox Grid.Row="0" Grid.Column="1" 
                                           ItemsSource="{Binding AvailablePronunciationProviders}"
                                           SelectedValue="{Binding PronunciationProvider}"
                                           SelectedValuePath="Name"
                                           Style="{StaticResource SettingsComboBoxStyle}"
-                                          VerticalAlignment="Center">
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,0,8">
                                     <ComboBox.ItemTemplate>
                                         <DataTemplate DataType="{x:Type models:PronunciationProviderInfo}">
                                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -389,31 +431,60 @@
                                 <TextBlock Grid.Row="1" Text="Gemini API Key:" 
                                            VerticalAlignment="Center" 
                                            Foreground="{StaticResource TextPrimaryBrush}"
-                                           IsEnabled="{Binding IsGeminiApiKeyInputEnabled}"/>
+                                           Margin="0,0,12,8"
+                                           Visibility="{Binding IsGeminiApiKeyInputEnabled, Converter={StaticResource BoolToVisibility}}"/>
                                 <PasswordBox Grid.Row="1" Grid.Column="1" 
                                              x:Name="GeminiApiKeyBox"
                                              PasswordChar="•"
-                                             VerticalAlignment="Center"
-                                             VerticalContentAlignment="Center"
-                                             Height="26"
+                                             Style="{StaticResource SettingsPasswordBoxStyle}"
+                                             Margin="0,0,0,8"
                                              PasswordChanged="GeminiApiKeyBox_PasswordChanged"
                                              ToolTip="Required for Gemini provider"
-                                             IsEnabled="{Binding IsGeminiApiKeyInputEnabled}"/>
+                                             Visibility="{Binding IsGeminiApiKeyInputEnabled, Converter={StaticResource BoolToVisibility}}"/>
 
                                 <TextBlock Grid.Row="2" Text="GCP API Key:" 
                                            VerticalAlignment="Center" 
                                            Foreground="{StaticResource TextPrimaryBrush}"
-                                           IsEnabled="{Binding IsGcpApiKeyInputEnabled}"/>
+                                           Margin="0,0,12,8"
+                                           Visibility="{Binding IsGcpApiKeyInputEnabled, Converter={StaticResource BoolToVisibility}}"/>
                                 <PasswordBox Grid.Row="2" Grid.Column="1" 
                                              x:Name="GcpApiKeyBox"
                                              PasswordChar="•"
-                                             VerticalAlignment="Center"
-                                             VerticalContentAlignment="Center"
-                                             Height="26"
+                                             Style="{StaticResource SettingsPasswordBoxStyle}"
+                                             Margin="0,0,0,8"
                                              PasswordChanged="GcpApiKeyBox_PasswordChanged"
                                              ToolTip="Required for GCP provider"
-                                             IsEnabled="{Binding IsGcpApiKeyInputEnabled}"/>
-                            </Grid>
+                                             Visibility="{Binding IsGcpApiKeyInputEnabled, Converter={StaticResource BoolToVisibility}}"/>
+
+                                <TextBlock Grid.Row="3" Text="ElevenLabs API Key:" 
+                                           VerticalAlignment="Center" 
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           Margin="0,0,12,8"
+                                           Visibility="{Binding IsElevenLabsApiKeyInputEnabled, Converter={StaticResource BoolToVisibility}}"/>
+                                <PasswordBox Grid.Row="3" Grid.Column="1" 
+                                             x:Name="ElevenLabsApiKeyBox"
+                                             PasswordChar="•"
+                                             Style="{StaticResource SettingsPasswordBoxStyle}"
+                                             Margin="0,0,0,8"
+                                             PasswordChanged="ElevenLabsApiKeyBox_PasswordChanged"
+                                             ToolTip="Required for ElevenLabs provider"
+                                             Visibility="{Binding IsElevenLabsApiKeyInputEnabled, Converter={StaticResource BoolToVisibility}}"/>
+
+                                <TextBlock Grid.Row="4" Text="ElevenLabs Voice ID:" 
+                                           VerticalAlignment="Center" 
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           Margin="0,0,12,0"
+                                           Visibility="{Binding IsElevenLabsVoiceIdInputEnabled, Converter={StaticResource BoolToVisibility}}"/>
+                                <TextBox Grid.Row="4" Grid.Column="1" 
+                                         x:Name="ElevenLabsVoiceIdBox"
+                                         Text="{Binding ElevenLabsVoiceId, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource SettingsTextBoxStyle}"
+                                         VerticalAlignment="Center"
+                                         VerticalContentAlignment="Center"
+                                         Height="26"
+                                         ToolTip="Voice ID from ElevenLabs (default: Rachel)"
+                                         Visibility="{Binding IsElevenLabsVoiceIdInputEnabled, Converter={StaticResource BoolToVisibility}}"/>
+                             </Grid>
                         </GroupBox>
 
                         <GroupBox Header="Single Word Lookup" Style="{StaticResource SettingsGroupBoxStyle}">

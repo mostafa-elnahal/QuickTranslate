@@ -8,6 +8,10 @@ namespace QuickTranslate.Services;
 /// <summary>
 /// Service for breaking English words into phonetic syllables for pronunciation practice.
 /// Uses rule-based English syllabification algorithm.
+///
+/// NOTE: Currently only supports English. The IPA -> "sounds like" mappings and the rule-based
+/// syllabification algorithm are English-specific. Other languages will produce incorrect results.
+/// Future: Extend with language-specific syllabification rules and IPA mappings per locale.
 /// </summary>
 public class SyllableService : ISyllableService
 {

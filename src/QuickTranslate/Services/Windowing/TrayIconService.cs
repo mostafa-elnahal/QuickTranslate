@@ -14,6 +14,7 @@ public class TrayIconService : ITrayIconService
     public event EventHandler? ExitRequested;
     public event EventHandler? SettingsRequested;
     public event EventHandler? OcrRequested;
+    public event EventHandler? ShowMainWindowRequested;
 
     public void Initialize()
     {
@@ -45,7 +46,16 @@ public class TrayIconService : ITrayIconService
             Text = "QuickTranslate"
         };
 
+        _trayIcon.MouseClick += (s, e) =>
+        {
+            if (e.Button == MouseButtons.Left)
+                ShowMainWindowRequested?.Invoke(this, EventArgs.Empty);
+        };
+
         var contextMenu = new ContextMenuStrip();
+
+        var showItem = new ToolStripMenuItem("Show Main Window");
+        showItem.Click += (s, e) => ShowMainWindowRequested?.Invoke(this, EventArgs.Empty);
 
         var ocrItem = new ToolStripMenuItem("OCR Text");
         ocrItem.Click += (s, e) => OcrRequested?.Invoke(this, EventArgs.Empty);
@@ -56,6 +66,8 @@ public class TrayIconService : ITrayIconService
         var exitItem = new ToolStripMenuItem("Exit");
         exitItem.Click += (s, e) => ExitRequested?.Invoke(this, EventArgs.Empty);
 
+        contextMenu.Items.Add(showItem);
+        contextMenu.Items.Add(new ToolStripSeparator());
         contextMenu.Items.Add(ocrItem);
         contextMenu.Items.Add(new ToolStripSeparator());
         contextMenu.Items.Add(settingsItem);

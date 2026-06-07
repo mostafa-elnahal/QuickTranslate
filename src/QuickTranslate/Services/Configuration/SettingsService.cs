@@ -119,6 +119,19 @@ public class SettingsService : ISettingsService
                     _settings.GcpApiKey = string.Empty;
                 }
             }
+
+            if (!string.IsNullOrEmpty(_settings.EncryptedElevenLabsApiKey))
+            {
+                try
+                {
+                    _settings.ElevenLabsApiKey = Unprotect(_settings.EncryptedElevenLabsApiKey);
+                }
+                catch (System.Security.Cryptography.CryptographicException ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Cryptography error decrypting ElevenLabs API key: {ex.Message}");
+                    _settings.ElevenLabsApiKey = string.Empty;
+                }
+            }
         }
     }
 
@@ -202,6 +215,24 @@ public class SettingsService : ISettingsService
         else
         {
             _settings.EncryptedGcpApiKey = string.Empty;
+        }
+
+        // Encrypt ElevenLabs API Key before saving
+        if (!string.IsNullOrEmpty(_settings.ElevenLabsApiKey))
+        {
+            try
+            {
+                _settings.EncryptedElevenLabsApiKey = Protect(_settings.ElevenLabsApiKey);
+            }
+            catch (System.Security.Cryptography.CryptographicException ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Cryptography error encrypting ElevenLabs API key: {ex.Message}");
+                _settings.EncryptedElevenLabsApiKey = string.Empty;
+            }
+        }
+        else
+        {
+            _settings.EncryptedElevenLabsApiKey = string.Empty;
         }
     }
 

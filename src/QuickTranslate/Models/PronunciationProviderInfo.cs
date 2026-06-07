@@ -36,6 +36,13 @@ public class PronunciationProviderInfo
                 RequiresApiKey = true,
                 Description = "HD voice, word timing"
             },
+            Constants.PronunciationProviders.ElevenLabs => new PronunciationProviderInfo
+            {
+                Name = providerName,
+                BrandColor = "#FF6600",
+                RequiresApiKey = true,
+                Description = "Lifelike AI voices, character-level sync"
+            },
             _ => new PronunciationProviderInfo
             {
                 Name = providerName

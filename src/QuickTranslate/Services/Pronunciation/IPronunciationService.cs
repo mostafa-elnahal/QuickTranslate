@@ -18,8 +18,19 @@ public interface IPronunciationService
     /// </summary>
     int MaxChunkSize { get; }
 
+    /// <summary>
+    /// The level of timing support the active provider offers for word-level highlighting.
+    /// </summary>
+    TimingSupportLevel TimingSupport { get; }
+
     Task<PronunciationResult<PronunciationData>> GetPronunciationAsync(string text);
     Task<PronunciationResult<Uri?>> GetAudioUriAsync(string text, string languageCode, bool slowMode);
+
+    /// <summary>
+    /// Clears any in-memory caches held by the active provider (e.g., ElevenLabs audio cache).
+    /// Called when the pronunciation popup is hidden to release retained PCM data.
+    /// </summary>
+    void ClearProviderCache();
 
     /// <summary>
     /// Streams audio directly to the player.

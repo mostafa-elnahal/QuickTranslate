@@ -66,6 +66,18 @@ public partial class App : Application
             selectionMonitor.Start();
         }
 
+        // Initialize MainWindow
+        var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
+        mainWindow.Show();
+
+        // Wire tray icon to show main window
+        trayIconService.ShowMainWindowRequested += (s, args) =>
+        {
+            mainWindow.Show();
+            mainWindow.Activate();
+            mainWindow.WindowState = WindowState.Normal;
+        };
+
         // Keep toolbar behaving as a tooltip, close on focus loss
         var foregroundMonitor = _serviceProvider.GetRequiredService<IForegroundWindowMonitorService>();
         foregroundMonitor.Start();
@@ -101,9 +113,11 @@ public partial class App : Application
 
         // Pronunciation Services
         services.AddSingleton<ILanguageMetadataService, LanguageMetadataService>();
-        services.AddSingleton<IAudioSyncService, AudioSyncService>();
         services.AddSingleton<IAudioStreamingService, AudioStreamingService>();
         services.AddSingleton<IStreamingAudioPlayerFactory, StreamingAudioPlayerFactory>();
+
+        services.AddSingleton<IAudioPlaybackService, AudioPlaybackService>();
+        services.AddSingleton<IWordHighlightService, WordHighlightService>();
 
         // Pronunciation Providers & Service
         services.AddSingleton<IPronunciationProvider, GooglePronunciationProvider>();
@@ -114,6 +128,10 @@ public partial class App : Application
 
         services.AddSingleton<IPronunciationProvider>(sp =>
             new GcpPronunciationProvider(
+                sp.GetRequiredService<ISettingsService>()));
+
+        services.AddSingleton<IPronunciationProvider>(sp =>
+            new ElevenLabsPronunciationProvider(
                 sp.GetRequiredService<ISettingsService>()));
 
         services.AddSingleton<IPronunciationService>(sp => 
@@ -128,11 +146,13 @@ public partial class App : Application
         services.AddSingleton<PronunciationViewModel>();
         services.AddSingleton<FloatingToolbarViewModel>();
         services.AddTransient<SettingsViewModel>();
+        services.AddSingleton<MainViewModel>();
 
         // Windows/Views
         services.AddSingleton<TranslationPopup>();
         services.AddSingleton<PronunciationPopup>();
         services.AddSingleton<FloatingToolbarWindow>();
+        services.AddSingleton<MainWindow>();
     }
 
     private void OnSettingsChanged(object? sender, EventArgs e)

@@ -41,10 +41,10 @@ public partial class PronunciationPopup : Window
         _sizingService = sizingService;
         DataContext = _viewModel;
 
-        // Initialize progress timer
+        // Initialize progress timer (~30 fps for smooth slider updates)
         _progressTimer = new System.Windows.Threading.DispatcherTimer
         {
-            Interval = TimeSpan.FromMilliseconds(100)
+            Interval = TimeSpan.FromMilliseconds(33)
         };
         _progressTimer.Tick += ProgressTimer_Tick;
 
@@ -102,6 +102,7 @@ public partial class PronunciationPopup : Window
         base.OnSourceInitialized(e);
         DisableMaximization();
         _sizingService?.ApplySize(this, WindowType.Pronunciation);
+        HookKeyboard();
     }
 
     protected override void OnPreviewMouseDown(MouseButtonEventArgs e)
@@ -121,6 +122,45 @@ public partial class PronunciationPopup : Window
         var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
         var style = PInvoke.GetWindowLong(new HWND(hwnd), WINDOW_LONG_PTR_INDEX.GWL_STYLE);
         PInvoke.SetWindowLong(new HWND(hwnd), WINDOW_LONG_PTR_INDEX.GWL_STYLE, style & ~(int)WINDOW_STYLE.WS_MAXIMIZEBOX);
+    }
+
+    private void HookKeyboard()
+    {
+        var helper = new System.Windows.Interop.WindowInteropHelper(this);
+        var src = System.Windows.Interop.HwndSource.FromHwnd(helper.Handle);
+        src?.AddHook(WndProc);
+    }
+
+    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        const int WM_KEYDOWN = 0x0100;
+        if (msg != WM_KEYDOWN || _viewModel == null) return IntPtr.Zero;
+
+        int vkCode = wParam.ToInt32();
+        switch (vkCode)
+        {
+            case 0x20: // Space → play/pause
+                if (_viewModel.PlayPauseCommand.CanExecute(null))
+                    _viewModel.PlayPauseCommand.Execute(null);
+                handled = true;
+                break;
+            case 0x1B: // Esc → close
+                _viewModel.HideWindow();
+                handled = true;
+                break;
+            case 0x52: // R → restart
+                if (_viewModel.RestartCommand.CanExecute(null))
+                    _viewModel.RestartCommand.Execute(null);
+                handled = true;
+                break;
+            case 0x53: // S → toggle slow mode
+                if (!_viewModel.IsLoading)
+                    _viewModel.IsSlowMode = !_viewModel.IsSlowMode;
+                handled = true;
+                break;
+        }
+
+        return IntPtr.Zero;
     }
 
     private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -148,13 +188,9 @@ public partial class PronunciationPopup : Window
     {
         if (_viewModel == null || _isDraggingSlider) return;
 
-        if (_viewModel.StreamingPlayer != null)
-        {
-            _isUpdatingFromTimer = true;
-            _viewModel.TotalDuration = _viewModel.StreamingPlayer.TotalDuration;
-            _viewModel.CurrentPosition = _viewModel.StreamingPlayer.CurrentPosition;
-            _isUpdatingFromTimer = false;
-        }
+        _isUpdatingFromTimer = true;
+        _viewModel.SyncPlaybackPosition();
+        _isUpdatingFromTimer = false;
     }
 
     private void Slider_DragStarted(object sender, System.Windows.Controls.Primitives.DragStartedEventArgs e)
@@ -174,7 +210,7 @@ public partial class PronunciationPopup : Window
                 TimeSpan newPos = TimeSpan.FromSeconds(slider.Value);
                 if (newPos > _viewModel.TotalDuration) newPos = _viewModel.TotalDuration;
 
-                _viewModel.StreamingPlayer?.SetPosition(newPos);
+                _viewModel.Seek(newPos);
             }
         }
     }
@@ -189,15 +225,7 @@ public partial class PronunciationPopup : Window
             // Limit to duration
             if (newPos > _viewModel.TotalDuration) newPos = _viewModel.TotalDuration;
 
-            if (_viewModel.StreamingPlayer != null)
-            {
-                _viewModel.StreamingPlayer.SetPosition(newPos);
-            }
-
-            // Update VM immediately for smooth UI
-            _isUpdatingFromTimer = true;
-            _viewModel.CurrentPosition = newPos;
-            _isUpdatingFromTimer = false;
+            _viewModel.Seek(newPos);
         }
         else if (_isDraggingSlider && _viewModel != null)
         {

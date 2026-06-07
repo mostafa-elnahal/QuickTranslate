@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using QuickTranslate.Models;
 
 namespace QuickTranslate.Services.Audio;
 
@@ -94,6 +96,35 @@ public interface IStreamingAudioPlayer : IDisposable
     /// already drained, PlaybackCompleted fires immediately.
     /// </summary>
     void EndStreaming();
+
+    /// <summary>
+    /// Provides per-word timing data for a chunk being enqueued.
+    /// The player accumulates these across chunks, applying byte-offset-based
+    /// time shifting so that <see cref="GetCombinedTimepoints"/> returns
+    /// absolute timing relative to the start of the entire stream.
+    /// </summary>
+    /// <param name="timepoints">Word-level timepoints for this chunk, relative to chunk start.</param>
+    /// <param name="pcmDataLengthBytes">Length of the PCM data for this chunk (for offset calculation).</param>
+    void SetChunkTimepoints(IReadOnlyList<TimepointInfo> timepoints, int pcmDataLengthBytes);
+
+    /// <summary>
+    /// Records the current total PCM byte count as a chunk boundary.
+    /// Used by providers without exact timing to enable playback-position-based chunk highlighting.
+    /// </summary>
+    void RecordChunkBoundary();
+
+    /// <summary>
+    /// Returns start times of each chunk relative to the stream beginning,
+    /// derived from recorded byte boundaries and the audio format.
+    /// Returns an empty list if no boundaries have been recorded.
+    /// </summary>
+    IReadOnlyList<TimeSpan> GetChunkBoundaries();
+
+    /// <summary>
+    /// Returns all chunk timepoints combined with absolute offsets,
+    /// or null if no timepoints have been provided.
+    /// </summary>
+    IReadOnlyList<TimepointInfo>? GetCombinedTimepoints();
 
     /// <summary>
     /// Event raised when playback completes.
