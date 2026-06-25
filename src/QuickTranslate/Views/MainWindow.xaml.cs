@@ -1,7 +1,10 @@
 using System;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
 using QuickTranslate.ViewModels;
 
 namespace QuickTranslate.Views;
@@ -9,6 +12,7 @@ namespace QuickTranslate.Views;
 public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel;
+    private GridLength _lastPanelHeight = new(250);
 
     public MainWindow(MainViewModel viewModel)
     {
@@ -18,6 +22,9 @@ public partial class MainWindow : Window
 
         SourceTextBox.Focus();
 
+        // Listen for panel expansion changes to reset row height
+        _viewModel.PropertyChanged += OnViewModelPropertyChanged;
+
         // Intercept closing to hide to tray instead of closing
         Closing += (s, e) =>
         {
@@ -25,6 +32,52 @@ public partial class MainWindow : Window
             Hide();
             _viewModel.IsVisible = false;
         };
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainViewModel.IsBottomPanelExpanded))
+        {
+            if (_viewModel.IsBottomPanelExpanded)
+                PanelContentRow.Height = _lastPanelHeight;
+            else
+            {
+                _lastPanelHeight = PanelContentRow.Height;
+                PanelContentRow.Height = new GridLength(0);
+            }
+        }
+    }
+
+    private void PanelResizeThumb_DragDelta(object sender, DragDeltaEventArgs e)
+    {
+        double maxHeight = GetAvailableContentHeight();
+        double currentHeight = Math.Max(PanelContentBorder.ActualHeight, 250);
+        double newHeight = currentHeight - e.VerticalChange;
+        newHeight = Math.Max(250, Math.Min(maxHeight, newHeight));
+        _lastPanelHeight = new GridLength(newHeight);
+        PanelContentRow.Height = _lastPanelHeight;
+    }
+
+    private double GetAvailableContentHeight()
+    {
+        var border = Content as Border;
+        var outerGrid = border?.Child as Grid;
+        if (outerGrid == null) return 500;
+
+        double titleBar = outerGrid.RowDefinitions[0].ActualHeight;
+        double langBar = outerGrid.RowDefinitions[1].ActualHeight;
+        double header = 36;
+        double thumb = 8;
+        return Math.Max(250, outerGrid.ActualHeight - titleBar - langBar - header - thumb - 4);
+    }
+
+    private void RootBorder_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (sender is Border border)
+        {
+            border.Clip = new RectangleGeometry(
+                new Rect(0, 0, border.ActualWidth, border.ActualHeight), 8, 8);
+        }
     }
 
     protected override void OnSourceInitialized(EventArgs e)

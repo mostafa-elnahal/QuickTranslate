@@ -153,7 +153,12 @@
         </Style>
     </Window.Resources>
 
-    <Grid>
+    <Border x:Name="RootBorder"
+            CornerRadius="8"
+            ClipToBounds="True"
+            SizeChanged="RootBorder_SizeChanged">
+
+        <Grid>
         <!-- Collapsed State: Single icon button -->
         <Border x:Name="CollapsedIcon"
                 Background="{DynamicResource ToolbarBackgroundBrush}"
@@ -317,4 +322,5 @@
             </StackPanel>
         </Border>
     </Grid>
+    </Border>
 </Window>

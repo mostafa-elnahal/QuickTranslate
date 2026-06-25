@@ -16,6 +16,7 @@ namespace QuickTranslate.ViewModels;
 public partial class MainViewModel : ObservableObject, IDisposable
 {
     private readonly ITranslationService _translationService;
+    private readonly IDictionaryService _dictionaryService;
     private readonly ISettingsService _settingsService;
     private readonly IPronunciationService _pronunciationService;
     private readonly IClipboardService _clipboardService;
@@ -70,16 +71,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private string _dictionaryPhonetic = string.Empty;
 
     [ObservableProperty]
-    private string _dictionarySyllables = string.Empty;
-
-    [ObservableProperty]
     private string _dictionaryPartOfSpeech = string.Empty;
 
     [ObservableProperty]
     private string _dictionaryDefinition = string.Empty;
-
-    [ObservableProperty]
-    private string _dictionaryExample = string.Empty;
 
     [ObservableProperty]
     private string _dictionarySearchText = string.Empty;
@@ -91,6 +86,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private bool _hasDictionaryResult;
 
     [ObservableProperty]
+    private bool _isTranslationsExpanded = true;
+
+    [ObservableProperty]
+    private bool _isDefinitionsExpanded;
+
+    [ObservableProperty]
+    private bool _isExamplesExpanded;
+
+    [ObservableProperty]
     private bool _isSourceCopied;
 
     [ObservableProperty]
@@ -99,7 +103,16 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _isBookmarked;
 
+    [ObservableProperty]
+    private string _detectedSourceLanguage = string.Empty;
+
+    private string _lastDetectedSourceCode = string.Empty;
+
     public ObservableCollection<string> DictionarySynonyms { get; } = new();
+    public ObservableCollection<DictionaryEntry> DictionaryEntries { get; } = new();
+    public ObservableCollection<DictionaryEntry> TranslationEntries { get; } = new();
+    public ObservableCollection<DictionaryEntry> DefinitionEntries { get; } = new();
+    public ObservableCollection<DictionaryEntry> ExampleEntries { get; } = new();
     public ObservableCollection<LanguageOption> Languages { get; } = new();
     public ObservableCollection<LanguageOption> TargetLanguages { get; } = new();
     public ObservableCollection<string> TranslationProviders { get; } = new();
@@ -116,19 +129,23 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     public MainViewModel(
         ITranslationService translationService,
+        IDictionaryService dictionaryService,
         ISettingsService settingsService,
         IPronunciationService pronunciationService,
         IClipboardService clipboardService,
         IStreamingAudioPlayerFactory audioPlayerFactory)
     {
         _translationService = translationService;
+        _dictionaryService = dictionaryService;
         _settingsService = settingsService;
         _pronunciationService = pronunciationService;
         _clipboardService = clipboardService;
         _audioPlayerFactory = audioPlayerFactory;
 
-        _sourceLanguage = "auto";
+        _sourceLanguage = _settingsService.Settings.DefaultSourceLanguage;
         _targetLanguage = _settingsService.Settings.DefaultTargetLanguage;
+        _autoDetectSource = _settingsService.Settings.AutoDetectSource;
+        _autoTranslateEnabled = _settingsService.Settings.AutoTranslateEnabled;
 
         LoadLanguages();
         InitializeProviders();
@@ -155,9 +172,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
             TranslationProviders.Add(p);
 
         PronunciationProviders.Add(PronunciationProviderInfo.Create(Constants.PronunciationProviders.Google));
+        PronunciationProviders.Add(PronunciationProviderInfo.Create(Constants.PronunciationProviders.ElevenLabs));
         PronunciationProviders.Add(PronunciationProviderInfo.Create(Constants.PronunciationProviders.Gemini));
         PronunciationProviders.Add(PronunciationProviderInfo.Create(Constants.PronunciationProviders.Gcp));
-        PronunciationProviders.Add(PronunciationProviderInfo.Create(Constants.PronunciationProviders.ElevenLabs));
 
         SelectedTranslationProvider = _translationService.ProviderName;
         SelectedPronunciationProvider = _settingsService.Settings.PronunciationProvider;
@@ -167,6 +184,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         OnPropertyChanged(nameof(TranslationFontSize));
         OnPropertyChanged(nameof(TranslationFontFamily));
+
+        if (SourceLanguage != _settingsService.Settings.DefaultSourceLanguage)
+            SourceLanguage = _settingsService.Settings.DefaultSourceLanguage;
+        if (TargetLanguage != _settingsService.Settings.DefaultTargetLanguage)
+            TargetLanguage = _settingsService.Settings.DefaultTargetLanguage;
+        if (AutoDetectSource != _settingsService.Settings.AutoDetectSource)
+            AutoDetectSource = _settingsService.Settings.AutoDetectSource;
+        if (AutoTranslateEnabled != _settingsService.Settings.AutoTranslateEnabled)
+            AutoTranslateEnabled = _settingsService.Settings.AutoTranslateEnabled;
     }
 
     partial void OnSourceTextChanged(string value)
@@ -177,24 +203,50 @@ public partial class MainViewModel : ObservableObject, IDisposable
     partial void OnSourceLanguageChanged(string value)
     {
         AutoDetectSource = value == "auto";
+        if (_settingsService.Settings.DefaultSourceLanguage != value)
+        {
+            _settingsService.Settings.DefaultSourceLanguage = value;
+            _ = _settingsService.SaveAsync();
+        }
+        if (value != "auto")
+        {
+            TryAutoSelectTargetLanguage(value);
+        }
         StartDebounceTranslate();
     }
 
     partial void OnTargetLanguageChanged(string value)
     {
+        if (_settingsService.Settings.DefaultTargetLanguage != value)
+        {
+            _settingsService.Settings.DefaultTargetLanguage = value;
+            _ = _settingsService.SaveAsync();
+        }
         StartDebounceTranslate();
     }
 
     partial void OnAutoTranslateEnabledChanged(bool value)
     {
+        if (_settingsService.Settings.AutoTranslateEnabled != value)
+        {
+            _settingsService.Settings.AutoTranslateEnabled = value;
+            _ = _settingsService.SaveAsync();
+        }
         if (value && !string.IsNullOrWhiteSpace(SourceText))
             StartDebounceTranslate();
     }
 
     partial void OnAutoDetectSourceChanged(bool value)
     {
+        if (_settingsService.Settings.AutoDetectSource != value)
+        {
+            _settingsService.Settings.AutoDetectSource = value;
+            _ = _settingsService.SaveAsync();
+        }
         if (value && SourceLanguage != "auto")
             SourceLanguage = "auto";
+        if (!value)
+            DetectedSourceLanguage = string.Empty;
     }
 
     partial void OnSelectedTranslationProviderChanged(string value)
@@ -284,8 +336,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 TranslatedText = result.MainTranslation;
                 if (AutoDetectSource && result.SourceLanguageCode != "auto")
                 {
-                    SourceLanguage = result.SourceLanguageCode;
-                    AutoDetectSource = false;
+                    _lastDetectedSourceCode = result.SourceLanguageCode;
+                    DetectedSourceLanguage = GetLanguageDisplayName(result.SourceLanguageCode);
+                }
+                if (result.SourceLanguageCode != "auto")
+                {
+                    RecordLanguagePair(result.SourceLanguageCode, TargetLanguage);
                 }
             }
             else
@@ -310,14 +366,18 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void SwapLanguages()
     {
-        if (AutoDetectSource) return;
+        if (AutoDetectSource && string.IsNullOrEmpty(_lastDetectedSourceCode))
+            return;
 
         var tempText = SourceText;
-        var tempLang = SourceLanguage;
+        var swapSource = AutoDetectSource ? _lastDetectedSourceCode : SourceLanguage;
 
         SourceText = TranslatedText;
-        SourceLanguage = TargetLanguage;
-        TargetLanguage = tempLang;
+        if (!AutoDetectSource)
+        {
+            SourceLanguage = TargetLanguage;
+        }
+        TargetLanguage = swapSource;
         TranslatedText = tempText;
     }
 
@@ -399,7 +459,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private void SearchDictionary(string word)
+    private async Task SearchDictionary(string word)
     {
         if (string.IsNullOrWhiteSpace(word)) return;
 
@@ -409,44 +469,71 @@ public partial class MainViewModel : ObservableObject, IDisposable
         ActiveBottomTab = "dictionary";
         DictionarySearchText = word;
 
-        Task.Run(async () =>
+        try
         {
-            await Task.Delay(300);
+            var result = await _dictionaryService.LookupAsync(word.Trim(), TargetLanguage);
 
-            await Application.Current.Dispatcher.InvokeAsync(() =>
+            DictionaryWord = result.OriginalText;
+            DictionaryPhonetic = result.Phonetic;
+            DictionaryPartOfSpeech = result.DictionaryEntries.Count > 0
+                ? result.DictionaryEntries[0].PartOfSpeech
+                : string.Empty;
+            DictionaryDefinition = result.DictionaryEntries
+                .FirstOrDefault(e => e.EntryType == DictionaryEntryType.Definition)
+                ?.Definitions.FirstOrDefault()?.MainTerm ?? string.Empty;
+
+            DictionarySynonyms.Clear();
+            var translationEntry = result.DictionaryEntries
+                .FirstOrDefault(e => e.EntryType == DictionaryEntryType.Translation);
+            if (translationEntry != null)
             {
-                var entry = GetLocalDictionaryEntry(word.Trim().ToLower());
-                if (entry.HasValue)
-                {
-                    var e = entry.Value;
-                    DictionaryWord = e.Word;
-                    DictionaryPhonetic = e.Phonetic;
-                    DictionarySyllables = e.Syllables;
-                    DictionaryPartOfSpeech = e.PartOfSpeech;
-                    DictionaryDefinition = e.Definition;
-                    DictionaryExample = e.Example;
-                    DictionarySynonyms.Clear();
-                    foreach (var s in e.Synonyms)
-                        DictionarySynonyms.Add(s);
-                    HasDictionaryResult = true;
-                }
-                else
-                {
-                    DictionaryWord = word;
-                    DictionaryPhonetic = $"/{word}/";
-                    DictionarySyllables = string.Join(".", word.ToCharArray());
-                    DictionaryPartOfSpeech = "unknown";
-                    DictionaryDefinition = $"[Offline] Definition for '{word}'.";
-                    DictionaryExample = $"The word '{word}' was looked up in local dictionary.";
-                    DictionarySynonyms.Clear();
-                    DictionarySynonyms.Add("example");
-                    DictionarySynonyms.Add("demo");
-                    HasDictionaryResult = true;
-                }
+                foreach (var def in translationEntry.Definitions)
+                    DictionarySynonyms.Add(def.MainTerm);
+            }
 
-                IsDictionaryLoading = false;
-            });
-        });
+            DictionaryEntries.Clear();
+            TranslationEntries.Clear();
+            DefinitionEntries.Clear();
+            ExampleEntries.Clear();
+            foreach (var entry in result.DictionaryEntries)
+            {
+                DictionaryEntries.Add(entry);
+                switch (entry.EntryType)
+                {
+                    case DictionaryEntryType.Translation:
+                        TranslationEntries.Add(entry);
+                        break;
+                    case DictionaryEntryType.Definition:
+                        DefinitionEntries.Add(entry);
+                        break;
+                    case DictionaryEntryType.Example:
+                        ExampleEntries.Add(entry);
+                        break;
+                }
+            }
+
+            HasDictionaryResult = true;
+            IsTranslationsExpanded = true;
+            IsDefinitionsExpanded = false;
+            IsExamplesExpanded = false;
+        }
+        catch (Exception ex)
+        {
+            DictionaryWord = word;
+            DictionaryPhonetic = string.Empty;
+            DictionaryPartOfSpeech = string.Empty;
+            DictionaryDefinition = $"Error: {ex.Message}";
+            DictionarySynonyms.Clear();
+            DictionaryEntries.Clear();
+            TranslationEntries.Clear();
+            DefinitionEntries.Clear();
+            ExampleEntries.Clear();
+            HasDictionaryResult = true;
+        }
+        finally
+        {
+            IsDictionaryLoading = false;
+        }
     }
 
     [RelayCommand]
@@ -455,6 +542,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
         ActiveBottomTab = tab;
         IsBottomPanelExpanded = true;
     }
+
+    [RelayCommand]
+    private void ToggleTranslations() => IsTranslationsExpanded = !IsTranslationsExpanded;
+
+    [RelayCommand]
+    private void ToggleDefinitions() => IsDefinitionsExpanded = !IsDefinitionsExpanded;
+
+    [RelayCommand]
+    private void ToggleExamples() => IsExamplesExpanded = !IsExamplesExpanded;
 
     [RelayCommand]
     private void ToggleBookmark()
@@ -476,25 +572,34 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    private static (string Word, string Syllables, string Phonetic, string PartOfSpeech, string Definition, string Example, string[] Synonyms)? GetLocalDictionaryEntry(string word)
+    private void RecordLanguagePair(string sourceCode, string targetCode)
     {
-        var entries = new Dictionary<string, (string, string, string, string, string, string, string[])>
-        {
-            ["lightweight"] = ("lightweight", "light.weight", "/ˈlaɪtweɪt/", "adjective",
-                "Having thin construction or low weight; designed to be highly efficient and consume minimal resources.",
-                "The new translator is lightweight, loading in under 50ms.",
-                new[] { "compact", "portable", "nimble", "slimline" }),
-            ["translator"] = ("translator", "trans.la.tor", "/trænsˈleɪtər/", "noun",
-                "A program or person that converts text from one language into another.",
-                "This WPF tool operates as an instant translator.",
-                new[] { "interpreter", "converter", "linguist" }),
-            ["compact"] = ("compact", "com.pact", "/kəmˈpækt/", "adjective",
-                "Closely and neatly packed together; dense; small in size.",
-                "The dual-panel design is very compact, leaving desktop space free.",
-                new[] { "dense", "compressed", "concise", "small" }),
-        };
+        var pairs = _settingsService.Settings.RecentLanguagePairs;
+        if (pairs.TryGetValue(sourceCode, out var existing) && existing == targetCode)
+            return;
+        pairs[sourceCode] = targetCode;
+        _ = _settingsService.SaveAsync();
+    }
 
-        return entries.TryGetValue(word, out var e) ? e : null;
+    private void TryAutoSelectTargetLanguage(string sourceCode)
+    {
+        var manual = _settingsService.Settings.ManualLanguagePairs;
+        if (manual.TryGetValue(sourceCode, out var manualTarget) && manualTarget != TargetLanguage)
+        {
+            TargetLanguage = manualTarget;
+            return;
+        }
+
+        var auto = _settingsService.Settings.RecentLanguagePairs;
+        if (auto.TryGetValue(sourceCode, out var autoTarget) && autoTarget != TargetLanguage)
+        {
+            TargetLanguage = autoTarget;
+        }
+    }
+
+    private string GetLanguageDisplayName(string code)
+    {
+        return Languages.FirstOrDefault(l => l.Code == code)?.DisplayName ?? code;
     }
 
     public void Dispose()

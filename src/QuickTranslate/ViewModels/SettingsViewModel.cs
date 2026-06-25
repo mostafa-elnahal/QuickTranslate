@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
@@ -36,6 +37,16 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty]
     private string _defaultTargetLanguage = Constants.Defaults.TargetLanguage;
+
+    [ObservableProperty]
+    private bool _autoDetectSource = true;
+
+    [ObservableProperty]
+    private bool _autoTranslateEnabled = true;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsAutoDetectSourceEnabled))]
+    private bool _autoDetectTargetLanguage;
 
     [ObservableProperty]
     private string _defaultProvider = Constants.TranslationProviders.Google;
@@ -87,6 +98,12 @@ public partial class SettingsViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(SaveCommand))]
     private bool _isDirty = false;
 
+    [ObservableProperty]
+    private string _newPairSource = "en";
+
+    [ObservableProperty]
+    private string _newPairTarget = "ar";
+
     private static readonly ObservableCollection<string> StaticCategories = new() { "Basics", "Hotkeys", "Languages", "Appearance", "Pronunciation", "OCR", "About" };
     private static readonly ObservableCollection<string> StaticProviders = new() { Constants.TranslationProviders.Google, Constants.TranslationProviders.Bing, Constants.TranslationProviders.Yandex };
     private static readonly ObservableCollection<string> StaticFontFamilies = new() { "Segoe UI", "Calibri", "Arial", "Consolas", "Georgia" };
@@ -94,9 +111,9 @@ public partial class SettingsViewModel : ObservableObject
     private static readonly ObservableCollection<PronunciationProviderInfo> StaticPronunciationProviders = new()
     {
         PronunciationProviderInfo.Create(Constants.PronunciationProviders.Google),
+        PronunciationProviderInfo.Create(Constants.PronunciationProviders.ElevenLabs),
         PronunciationProviderInfo.Create(Constants.PronunciationProviders.Gemini),
-        PronunciationProviderInfo.Create(Constants.PronunciationProviders.Gcp),
-        PronunciationProviderInfo.Create(Constants.PronunciationProviders.ElevenLabs)
+        PronunciationProviderInfo.Create(Constants.PronunciationProviders.Gcp)
     };
 
     public SettingsViewModel(ISettingsService settingsService, IDialogService dialogService, ITranslationService translationService, IOcrService ocrService)
@@ -126,11 +143,13 @@ public partial class SettingsViewModel : ObservableObject
     public ObservableCollection<string> AvailableFontFamilies { get; }
     public ObservableCollection<string> AvailableFontWeights { get; }
     public ObservableCollection<PronunciationProviderInfo> AvailablePronunciationProviders { get; }
+    public ObservableCollection<LanguagePair> LanguagePairs { get; } = new();
 
     public bool IsGeminiApiKeyInputEnabled => PronunciationProvider == Constants.PronunciationProviders.Gemini;
     public bool IsGcpApiKeyInputEnabled => PronunciationProvider == Constants.PronunciationProviders.Gcp;
     public bool IsElevenLabsApiKeyInputEnabled => PronunciationProvider == Constants.PronunciationProviders.ElevenLabs;
     public bool IsElevenLabsVoiceIdInputEnabled => PronunciationProvider == Constants.PronunciationProviders.ElevenLabs;
+    public bool IsAutoDetectSourceEnabled => !AutoDetectTargetLanguage;
 
     #endregion
 
@@ -189,6 +208,9 @@ public partial class SettingsViewModel : ObservableObject
         _settingsService.Settings.WindowOpacity = WindowOpacity;
         _settingsService.Settings.DefaultSourceLanguage = DefaultSourceLanguage;
         _settingsService.Settings.DefaultTargetLanguage = DefaultTargetLanguage;
+        _settingsService.Settings.AutoDetectSource = AutoDetectSource;
+        _settingsService.Settings.AutoTranslateEnabled = AutoTranslateEnabled;
+        _settingsService.Settings.AutoDetectTargetLanguage = AutoDetectTargetLanguage;
         _settingsService.Settings.DefaultProvider = DefaultProvider;
         _settingsService.Settings.Hotkey = Hotkey;
         _settingsService.Settings.PronunciationHotkey = PronunciationHotkey;
@@ -204,6 +226,10 @@ public partial class SettingsViewModel : ObservableObject
         _settingsService.Settings.ElevenLabsApiKey = ElevenLabsApiKey;
         _settingsService.Settings.ElevenLabsVoiceId = ElevenLabsVoiceId;
 
+        _settingsService.Settings.ManualLanguagePairs.Clear();
+        foreach (var pair in LanguagePairs)
+            _settingsService.Settings.ManualLanguagePairs[pair.SourceCode] = pair.TargetCode;
+
         await _settingsService.SaveAsync();
         IsDirty = false;
     }
@@ -212,6 +238,25 @@ public partial class SettingsViewModel : ObservableObject
     private void Close()
     {
         RequestClose?.Invoke(this, false);
+    }
+
+    [RelayCommand]
+    private void AddLanguagePair()
+    {
+        if (string.IsNullOrEmpty(NewPairSource) || string.IsNullOrEmpty(NewPairTarget)) return;
+        if (NewPairSource == NewPairTarget) return;
+        if (LanguagePairs.Any(p => p.SourceCode == NewPairSource)) return;
+
+        LanguagePairs.Add(new LanguagePair { SourceCode = NewPairSource, TargetCode = NewPairTarget });
+        IsDirty = true;
+    }
+
+    [RelayCommand]
+    private void RemoveLanguagePair(LanguagePair? pair)
+    {
+        if (pair == null) return;
+        LanguagePairs.Remove(pair);
+        IsDirty = true;
     }
 
     #endregion
@@ -223,6 +268,9 @@ public partial class SettingsViewModel : ObservableObject
         WindowOpacity = settings.WindowOpacity;
         DefaultSourceLanguage = settings.DefaultSourceLanguage;
         DefaultTargetLanguage = settings.DefaultTargetLanguage;
+        AutoDetectSource = settings.AutoDetectSource;
+        AutoTranslateEnabled = settings.AutoTranslateEnabled;
+        AutoDetectTargetLanguage = settings.AutoDetectTargetLanguage;
         DefaultProvider = settings.DefaultProvider;
         Hotkey = settings.Hotkey;
         PronunciationHotkey = settings.PronunciationHotkey;
@@ -237,6 +285,11 @@ public partial class SettingsViewModel : ObservableObject
         GcpApiKey = settings.GcpApiKey;
         ElevenLabsApiKey = settings.ElevenLabsApiKey;
         ElevenLabsVoiceId = string.IsNullOrEmpty(settings.ElevenLabsVoiceId) ? "21m00Tcm4TlvDq8ikWAM" : settings.ElevenLabsVoiceId;
+
+        LanguagePairs.Clear();
+        foreach (var pair in settings.ManualLanguagePairs)
+            LanguagePairs.Add(new LanguagePair { SourceCode = pair.Key, TargetCode = pair.Value });
+
         IsDirty = false;
     }
 }

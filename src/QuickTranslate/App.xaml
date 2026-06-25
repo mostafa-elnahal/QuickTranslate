@@ -16,6 +16,7 @@
             <converters:BoolToVisibilityConverter x:Key="InverseBoolToVisibility"/>
             <converters:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
             <converters:InverseBoolConverter x:Key="InverseBoolConverter"/>
+            <converters:LanguageDisplayConverter x:Key="LanguageDisplayConverter"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

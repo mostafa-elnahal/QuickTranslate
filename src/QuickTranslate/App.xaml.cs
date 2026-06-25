@@ -92,6 +92,7 @@ public partial class App : Application
         services.AddSingleton<ITrayIconService, TrayIconService>();
         services.AddSingleton<IWindowPositioningService, WindowPositioningService>();
         services.AddSingleton<ITranslationService, GTranslateService>();
+        services.AddSingleton<IDictionaryService, GoogleDictionaryService>();
         services.AddSingleton<IDialogService, DialogService>();
         services.AddSingleton<ISyllableService, SyllableService>();
 

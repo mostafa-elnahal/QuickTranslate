@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace QuickTranslate.Models;
 
 /// <summary>
@@ -138,4 +140,33 @@ public class AppSettings
     /// opening the translation popup directly.
     /// </summary>
     public bool ShowSelectionToolbar { get; set; } = true;
+
+    /// <summary>
+    /// Whether to automatically detect the source language.
+    /// Applies to both main window and popup translation.
+    /// </summary>
+    public bool AutoDetectSource { get; set; } = true;
+
+    /// <summary>
+    /// Whether to automatically translate as you type in the main window.
+    /// </summary>
+    public bool AutoTranslateEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Whether to automatically pick the best target language for the popup
+    /// based on system language and translation history.
+    /// </summary>
+    public bool AutoDetectTargetLanguage { get; set; } = false;
+
+    /// <summary>
+    /// Tracks the most recently used target language per source language.
+    /// Key = source language code, Value = target language code.
+    /// </summary>
+    public Dictionary<string, string> RecentLanguagePairs { get; set; } = new();
+
+    /// <summary>
+    /// User's manually configured translation pairs (set via Settings UI).
+    /// Takes priority over auto-recorded RecentLanguagePairs in heuristics.
+    /// </summary>
+    public Dictionary<string, string> ManualLanguagePairs { get; set; } = new();
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using QuickTranslate.Helpers;
 using QuickTranslate.Models;
@@ -238,5 +239,14 @@ public partial class FloatingToolbarWindow : Window
     private void Window_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
     {
         _viewModel.OnMouseLeave();
+    }
+
+    private void RootBorder_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (sender is Border border)
+        {
+            border.Clip = new RectangleGeometry(
+                new Rect(0, 0, border.ActualWidth, border.ActualHeight), 8, 8);
+        }
     }
 }

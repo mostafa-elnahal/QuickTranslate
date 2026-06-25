@@ -25,7 +25,7 @@
         SizeChanged="Window_SizeChanged">
 
     <WindowChrome.WindowChrome>
-        <WindowChrome CaptionHeight="0" ResizeBorderThickness="5" />
+        <WindowChrome CaptionHeight="0" ResizeBorderThickness="5" CornerRadius="8" />
     </WindowChrome.WindowChrome>
 
     <Window.Resources>
@@ -133,12 +133,22 @@
         </Style>
     </Window.Style>
 
-    <Border Background="{StaticResource WindowBackgroundBrush}" 
+    <Border x:Name="RootBorder"
+            Background="{StaticResource WindowBackgroundBrush}" 
             BorderBrush="{StaticResource BorderBrush}" 
             BorderThickness="1" 
             CornerRadius="8"
             ClipToBounds="True"
             Padding="0">
+        <Border.OpacityMask>
+            <VisualBrush>
+                <VisualBrush.Visual>
+                    <Border Background="Black" CornerRadius="8"
+                            Width="{Binding ActualWidth, ElementName=RootBorder}"
+                            Height="{Binding ActualHeight, ElementName=RootBorder}"/>
+                </VisualBrush.Visual>
+            </VisualBrush>
+        </Border.OpacityMask>
 
         <!-- Main Container -->
         <Grid>

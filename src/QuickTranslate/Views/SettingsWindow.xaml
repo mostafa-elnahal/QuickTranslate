@@ -284,9 +284,9 @@
                                     <RowDefinition Height="30"/>
                                     <RowDefinition Height="30"/>
                                 </Grid.RowDefinitions>
-                                
+
                                 <TextBlock Grid.Row="0" Text="Source language:" VerticalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}"/>
-                                <ComboBox Grid.Row="0" Grid.Column="1" 
+                                <ComboBox Grid.Row="0" Grid.Column="1"
                                           ItemsSource="{Binding AvailableLanguages}"
                                           SelectedValue="{Binding DefaultSourceLanguage}"
                                           SelectedValuePath="Code"
@@ -296,7 +296,7 @@
                                           Margin="0,2"/>
 
                                 <TextBlock Grid.Row="1" Text="Target language:" VerticalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}"/>
-                                <ComboBox Grid.Row="1" Grid.Column="1" 
+                                <ComboBox Grid.Row="1" Grid.Column="1"
                                           ItemsSource="{Binding AvailableLanguages}"
                                           SelectedValue="{Binding DefaultTargetLanguage}"
                                           SelectedValuePath="Code"
@@ -306,7 +306,129 @@
                                           Margin="0,2"/>
                             </Grid>
                         </GroupBox>
-                        
+
+                        <GroupBox Header="Translation behavior" Style="{StaticResource SettingsGroupBoxStyle}">
+                            <StackPanel Margin="12,4">
+                                <Grid Margin="0,0,0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Auto-detect source language" Foreground="{StaticResource TextPrimaryBrush}" FontSize="12"/>
+                                        <TextBlock Text="Automatically identify the source language for every translation" Foreground="{StaticResource TextSecondaryBrush}" FontSize="10"/>
+                                    </StackPanel>
+                                    <ToggleButton Grid.Column="1" IsChecked="{Binding AutoDetectSource}"
+                                                  IsEnabled="{Binding IsAutoDetectSourceEnabled}"
+                                                  Width="38" Height="20" VerticalAlignment="Center" Cursor="Hand">
+                                        <ToggleButton.Style>
+                                            <Style TargetType="ToggleButton" BasedOn="{StaticResource ToggleSwitchStyle}">
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsEnabled" Value="False">
+                                                        <Setter Property="Opacity" Value="0.45"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </ToggleButton.Style>
+                                    </ToggleButton>
+                                </Grid>
+
+                                <Grid Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Auto-translate" Foreground="{StaticResource TextPrimaryBrush}" FontSize="12"/>
+                                        <TextBlock Text="Translate automatically as you type in the main window" Foreground="{StaticResource TextSecondaryBrush}" FontSize="10"/>
+                                    </StackPanel>
+                                    <ToggleButton Grid.Column="1" IsChecked="{Binding AutoTranslateEnabled}"
+                                                  Style="{StaticResource ToggleSwitchStyle}"
+                                                  Width="38" Height="20" VerticalAlignment="Center" Cursor="Hand"/>
+                                </Grid>
+
+                                <Grid Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Auto-detect target language" Foreground="{StaticResource TextPrimaryBrush}" FontSize="12"/>
+                                        <TextBlock Text="Automatically pick the best target based on your system language" Foreground="{StaticResource TextSecondaryBrush}" FontSize="10"/>
+                                    </StackPanel>
+                                    <ToggleButton Grid.Column="1" IsChecked="{Binding AutoDetectTargetLanguage}"
+                                                  Style="{StaticResource ToggleSwitchStyle}"
+                                                  Width="38" Height="20" VerticalAlignment="Center" Cursor="Hand"/>
+                                </Grid>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <GroupBox Header="Language pairs" Style="{StaticResource SettingsGroupBoxStyle}">
+                            <StackPanel Margin="12,4">
+                                <TextBlock Text="Remembered translation pairs (source → target):" Foreground="{StaticResource TextSecondaryBrush}" FontSize="10" Margin="0,0,0,6"/>
+
+                                <ScrollViewer MaxHeight="120" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8">
+                                <ItemsControl ItemsSource="{Binding LanguagePairs}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type models:LanguagePair}">
+                                            <Grid Margin="0,1">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding DisplayName}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="12" VerticalAlignment="Center"/>
+                                                <Button Grid.Column="1"
+                                                        Command="{Binding DataContext.RemoveLanguagePairCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}"
+                                                        Style="{StaticResource IconButtonStyle}"
+                                                        Padding="4,2"
+                                                        ToolTip="Remove this pair">
+                                                    <Path Data="M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19V4Z"
+                                                          Fill="{StaticResource TextSecondaryBrush}"
+                                                          Width="12" Height="12"
+                                                          Stretch="Uniform"/>
+                                                </Button>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ComboBox Grid.Column="0"
+                                              ItemsSource="{Binding AvailableLanguages}"
+                                              SelectedValue="{Binding NewPairSource}"
+                                              SelectedValuePath="Code"
+                                              ItemTemplate="{StaticResource LanguageItemTemplate}"
+                                              Style="{StaticResource SettingsComboBoxStyle}"
+                                              VerticalAlignment="Center"
+                                              Margin="0,0,4,0"/>
+                                    <TextBlock Grid.Column="1" Text="→" Foreground="{StaticResource TextPrimaryBrush}" FontSize="12" VerticalAlignment="Center" Margin="4,0"/>
+                                    <ComboBox Grid.Column="2"
+                                              ItemsSource="{Binding AvailableLanguages}"
+                                              SelectedValue="{Binding NewPairTarget}"
+                                              SelectedValuePath="Code"
+                                              ItemTemplate="{StaticResource LanguageItemTemplate}"
+                                              Style="{StaticResource SettingsComboBoxStyle}"
+                                              VerticalAlignment="Center"
+                                              Margin="4,0,4,0"/>
+                                    <Button Grid.Column="3" Content="+"
+                                            Command="{Binding AddLanguagePairCommand}"
+                                            Style="{StaticResource IconButtonStyle}"
+                                            Foreground="{StaticResource TextPrimaryBrush}"
+                                            Padding="8,2" FontSize="14"
+                                            ToolTip="Add language pair"/>
+                                </Grid>
+                            </StackPanel>
+                        </GroupBox>
+
                         <GroupBox Header="Services" Style="{StaticResource SettingsGroupBoxStyle}">
                             <Grid Margin="12,4">
                                 <Grid.ColumnDefinitions>
@@ -428,7 +550,7 @@
                                     </ComboBox.ItemTemplate>
                                 </ComboBox>
 
-                                <TextBlock Grid.Row="1" Text="Gemini API Key:" 
+                                <TextBlock Grid.Row="1" Text="Google Ai Studio API Key:" 
                                            VerticalAlignment="Center" 
                                            Foreground="{StaticResource TextPrimaryBrush}"
                                            Margin="0,0,12,8"
@@ -439,10 +561,10 @@
                                              Style="{StaticResource SettingsPasswordBoxStyle}"
                                              Margin="0,0,0,8"
                                              PasswordChanged="GeminiApiKeyBox_PasswordChanged"
-                                             ToolTip="Required for Gemini provider"
+                                             ToolTip="Required for Google Ai Studio provider"
                                              Visibility="{Binding IsGeminiApiKeyInputEnabled, Converter={StaticResource BoolToVisibility}}"/>
 
-                                <TextBlock Grid.Row="2" Text="GCP API Key:" 
+                                <TextBlock Grid.Row="2" Text="Google Cloud Platform API Key:" 
                                            VerticalAlignment="Center" 
                                            Foreground="{StaticResource TextPrimaryBrush}"
                                            Margin="0,0,12,8"
@@ -453,7 +575,7 @@
                                              Style="{StaticResource SettingsPasswordBoxStyle}"
                                              Margin="0,0,0,8"
                                              PasswordChanged="GcpApiKeyBox_PasswordChanged"
-                                             ToolTip="Required for GCP provider"
+                                             ToolTip="Required for Google Cloud Platform provider"
                                              Visibility="{Binding IsGcpApiKeyInputEnabled, Converter={StaticResource BoolToVisibility}}"/>
 
                                 <TextBlock Grid.Row="3" Text="ElevenLabs API Key:" 

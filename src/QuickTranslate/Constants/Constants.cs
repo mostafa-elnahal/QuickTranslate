@@ -4,9 +4,9 @@ public static class Constants
 {
     public static class PronunciationProviders
     {
-        public const string Google = "Google";
-        public const string Gemini = "Gemini";
-        public const string Gcp = "GCP";
+        public const string Google = "Google Translate";
+        public const string Gemini = "Google Ai Studio";
+        public const string Gcp = "Google Cloud Platform";
         public const string ElevenLabs = "ElevenLabs";
     }
 

@@ -26,7 +26,7 @@ public class WindowSizingService : IWindowSizingService
     /// <summary>
     /// Minimum width to ensure header buttons are visible.
     /// </summary>
-    private const double MinWidth = 280;
+    private const double MinWidth = 380;
 
     public WindowSizingService(ISettingsService settingsService)
     {

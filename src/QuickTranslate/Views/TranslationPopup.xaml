@@ -10,7 +10,7 @@
         Title="QuickTranslate"
         Icon="pack://application:,,,/Assets/icon.ico"
         Width="600"
-        MinWidth="300" MinHeight="100"
+        MinWidth="380" MinHeight="100"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
@@ -27,7 +27,7 @@
         SizeChanged="Window_SizeChanged">
 
     <WindowChrome.WindowChrome>
-        <WindowChrome CaptionHeight="0" ResizeBorderThickness="5" />
+        <WindowChrome CaptionHeight="0" ResizeBorderThickness="5" CornerRadius="8" />
     </WindowChrome.WindowChrome>
 
     <Window.Style>
@@ -43,12 +43,22 @@
         <converters:MultiplyConverter x:Key="MultiplyConverter"/>
     </Window.Resources>
     
-    <Border Background="{StaticResource WindowBackgroundBrush}" 
+    <Border x:Name="RootBorder"
+            Background="{StaticResource WindowBackgroundBrush}" 
             BorderBrush="{StaticResource BorderBrush}" 
             BorderThickness="1" 
             CornerRadius="8"
             ClipToBounds="True"
             Padding="0">
+        <Border.OpacityMask>
+            <VisualBrush>
+                <VisualBrush.Visual>
+                    <Border Background="Black" CornerRadius="8"
+                            Width="{Binding ActualWidth, ElementName=RootBorder}"
+                            Height="{Binding ActualHeight, ElementName=RootBorder}"/>
+                </VisualBrush.Visual>
+            </VisualBrush>
+        </Border.OpacityMask>
 
         
         <!-- Main Container -->
@@ -58,8 +68,9 @@
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
             
-            <!-- Header: Fixed, not scrollable (also serves as drag area) -->
-            <DockPanel Grid.Row="0" LastChildFill="False" Margin="0" DataContext="{Binding Header}">
+            <!-- Header / Title Bar: Fixed, not scrollable (also serves as drag area) -->
+            <Border Grid.Row="0" Background="#181818" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="0">
+            <DockPanel LastChildFill="False" Margin="0" DataContext="{Binding Header}">
                 <DockPanel.Style>
                     <Style TargetType="DockPanel">
                         <Setter Property="Visibility" Value="Visible"/>
@@ -70,15 +81,13 @@
                         </Style.Triggers>
                     </Style>
                 </DockPanel.Style>
-                <TextBlock VerticalAlignment="Center" FontSize="{StaticResource FontSizeSmall}" Foreground="{StaticResource AccentBrush}" Margin="12,0,0,0">
-                    <Run Text="{Binding CurrentTranslation.SourceLanguage, Mode=OneWay}" FontWeight="SemiBold"/> 
-                    <Run Text=" ➔ " Foreground="{StaticResource TextSecondaryBrush}"/> 
-                    <Run Text="{Binding CurrentTranslation.TargetLanguage, Mode=OneWay}" FontWeight="SemiBold"/>
-                    <Run Text="  "/>
-                    <Run Text="{Binding CurrentTranslation.ProviderName, Mode=OneWay}" Foreground="{StaticResource TextSecondaryBrush}"/>
+
+                <!-- Provider Name (Left) -->
+                <TextBlock VerticalAlignment="Center" FontSize="{StaticResource FontSizeSmall}" Foreground="{StaticResource TextSecondaryBrush}" Margin="12,0,10,0" DockPanel.Dock="Left">
+                    <Run Text="{Binding CurrentTranslation.ProviderName, Mode=OneWay}"/>
                 </TextBlock>
-                
-                 <!-- Header Icons -->
+
+                 <!-- Header Icons (Right) -->
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
                      <!-- Star (Placeholder) - Hidden for MVP -->
                     <Button Style="{StaticResource WindowHeaderButtonStyle}" ToolTip="Save to Favorites" Visibility="Collapsed">
@@ -105,7 +114,47 @@
                               Height="10" Width="10"/>
                     </Button>
                 </StackPanel>
+
+                <!-- Language Selectors (Center) -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <!-- Source Language -->
+                    <ComboBox ItemsSource="{Binding DataContext.AvailableLanguages, RelativeSource={RelativeSource AncestorType=Window}}"
+                              SelectedValue="{Binding DataContext.SourceLanguage, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                              SelectedValuePath="Code"
+                              TextSearch.TextPath="DisplayName"
+                              Style="{StaticResource PopupComboBoxStyle}"
+                              MinWidth="75" MaxWidth="100" Height="20"
+                              FontSize="11"
+                              VerticalContentAlignment="Center"
+                              ItemTemplate="{StaticResource LanguageItemTemplate}"/>
+
+                    <!-- Swap Button -->
+                    <Button Command="{Binding DataContext.SwapLanguagesCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            Style="{StaticResource IconButtonStyle}"
+                            Width="18" Height="18"
+                            Margin="4,0"
+                            Padding="2"
+                            ToolTip="Swap languages">
+                        <Path Data="M2,5 L11,5 M7,2 L11,5 L7,8 M12,11 L3,11 M7,8 L3,11 L7,14"
+                              Stroke="{StaticResource AccentBrush}" StrokeThickness="1.5"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              StrokeLineJoin="Round"
+                              Stretch="Uniform" Width="9" Height="9"/>
+                    </Button>
+
+                    <!-- Target Language -->
+                    <ComboBox ItemsSource="{Binding DataContext.TargetLanguages, RelativeSource={RelativeSource AncestorType=Window}}"
+                              SelectedValue="{Binding DataContext.TargetLanguage, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                              SelectedValuePath="Code"
+                              TextSearch.TextPath="DisplayName"
+                              Style="{StaticResource PopupComboBoxStyle}"
+                              MinWidth="75" MaxWidth="100" Height="20"
+                              FontSize="11"
+                              VerticalContentAlignment="Center"
+                              ItemTemplate="{StaticResource LanguageItemTemplate}"/>
+                </StackPanel>
             </DockPanel>
+            </Border>
             
             <!-- Scrollable Content Area -->
             <ScrollViewer x:Name="ContentScrollViewer"

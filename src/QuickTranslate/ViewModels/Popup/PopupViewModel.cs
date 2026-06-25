@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using QuickTranslate.Services;
@@ -32,7 +34,14 @@ public partial class PopupViewModel : ObservableObject, IDisposable
     private bool _isVisible = false;
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SwapLanguagesCommand))]
+    private string _sourceLanguage = Constants.Defaults.TargetLanguage;
+
+    [ObservableProperty]
     private string _targetLanguage = Constants.Defaults.TargetLanguage;
+
+    public ObservableCollection<LanguageOption> AvailableLanguages { get; } = new();
+    public ObservableCollection<LanguageOption> TargetLanguages { get; } = new();
 
     public PopupHeaderViewModel Header { get; }
 
@@ -53,6 +62,10 @@ public partial class PopupViewModel : ObservableObject, IDisposable
     public int TranslationGeneration => _translationGeneration;
 
     private System.Threading.CancellationTokenSource? _translationCts;
+    private bool _isHeuristicReTranslating;
+    private string _lastDetectedSourceCode = string.Empty;
+    private bool _hasCompletedFirstTranslation = false;
+    private bool _isSwapping;
 
     private readonly IStreamingAudioPlayerFactory _playerFactory;
     private IStreamingAudioPlayer? _player;
@@ -73,11 +86,68 @@ public partial class PopupViewModel : ObservableObject, IDisposable
         Header = new PopupHeaderViewModel(clipboardService);
 
         // Initialize from settings
+        _sourceLanguage = _settingsService.Settings.DefaultSourceLanguage;
         _targetLanguage = _settingsService.Settings.DefaultTargetLanguage;
 
+        LoadLanguages();
         _settingsService.SettingsChanged += OnSettingsChanged;
 
         InitializeProviders();
+    }
+
+    public bool AutoDetectSource => _settingsService.Settings.AutoDetectSource;
+    public bool AutoDetectTargetLanguage => _settingsService.Settings.AutoDetectTargetLanguage;
+
+    private void LoadLanguages()
+    {
+        AvailableLanguages.Clear();
+        TargetLanguages.Clear();
+
+        var supported = _translationService.GetSupportedLanguages();
+        foreach (var lang in supported)
+        {
+            AvailableLanguages.Add(lang);
+            if (lang.Code != "auto")
+                TargetLanguages.Add(lang);
+        }
+    }
+
+    partial void OnSourceLanguageChanged(string value)
+    {
+        if (_isHeuristicReTranslating || _isSwapping) return;
+
+        bool isUserOverride = AutoDetectSource && value != "auto";
+        if (!isUserOverride)
+        {
+            if (_settingsService.Settings.DefaultSourceLanguage != value)
+            {
+                _settingsService.Settings.DefaultSourceLanguage = value;
+                _ = _settingsService.SaveAsync();
+            }
+            if (value != "auto")
+            {
+                TryAutoSelectTargetLanguage(value);
+            }
+        }
+        if (CurrentTranslation != null && !string.IsNullOrEmpty(CurrentTranslation.OriginalText))
+        {
+            _ = TranslateAsync(CurrentTranslation.OriginalText, isReTranslation: true);
+        }
+    }
+
+    partial void OnTargetLanguageChanged(string value)
+    {
+        if (_isHeuristicReTranslating || _isSwapping) return;
+
+        if (_settingsService.Settings.DefaultTargetLanguage != value)
+        {
+            _settingsService.Settings.DefaultTargetLanguage = value;
+            _ = _settingsService.SaveAsync();
+        }
+        if (CurrentTranslation != null && !string.IsNullOrEmpty(CurrentTranslation.OriginalText))
+        {
+            _ = TranslateAsync(CurrentTranslation.OriginalText, isReTranslation: true);
+        }
     }
 
     [RelayCommand]
@@ -127,14 +197,11 @@ public partial class PopupViewModel : ObservableObject, IDisposable
 
     private void OnSettingsChanged(object? sender, EventArgs e)
     {
-        // Update languages if they haven't been manually overridden for this session
-        // (For now, we just sync with the new defaults)
-        TargetLanguage = _settingsService.Settings.DefaultTargetLanguage;
-
         OnPropertyChanged(nameof(TranslationFontSize));
         OnPropertyChanged(nameof(TranslationFontFamily));
         OnPropertyChanged(nameof(TranslationFontWeight));
         OnPropertyChanged(nameof(ShowPronunciation));
+        OnPropertyChanged(nameof(AutoDetectTargetLanguage));
     }
 
     private void InitializeProviders()
@@ -178,23 +245,72 @@ public partial class PopupViewModel : ObservableObject, IDisposable
             {
                 IsVisible = false;
                 CurrentTranslation = null;
+                _hasCompletedFirstTranslation = false;
             }
 
             DebugLog.Write($"TranslateAsync: gen now={_translationGeneration}, starting translation request");
 
             if (string.IsNullOrWhiteSpace(sourceText))
             {
-                CurrentTranslation = await _translationService.TranslateAsync(sourceText, _targetLanguage, null, _translationCts.Token);
+                CurrentTranslation = await _translationService.TranslateAsync(sourceText, TargetLanguage, null, _translationCts.Token);
                 DebugLog.Write($"TranslateAsync: empty text translation completed, CurrentTranslation={CurrentTranslation != null}");
                 return;
             }
 
-            // Use DefaultSourceLanguage from settings if not specified
-            string? sourceLang = _settingsService.Settings.DefaultSourceLanguage == "auto" 
-                ? null 
-                : _settingsService.Settings.DefaultSourceLanguage;
+            string? sourceLang = SourceLanguage == "auto" ? null : SourceLanguage;
+            bool wasAutoDetect = SourceLanguage == "auto";
 
-            CurrentTranslation = await _translationService.TranslateAsync(sourceText, _targetLanguage, sourceLang, _translationCts.Token);
+            if (AutoDetectTargetLanguage)
+            {
+                sourceLang = null;
+                wasAutoDetect = true;
+            }
+
+            CurrentTranslation = await _translationService.TranslateAsync(sourceText, TargetLanguage, sourceLang, _translationCts.Token);
+            if (CurrentTranslation?.IsSuccess == true && CurrentTranslation.SourceLanguageCode != "auto")
+            {
+                var detectedSource = CurrentTranslation.SourceLanguageCode;
+                _lastDetectedSourceCode = detectedSource;
+
+                if (wasAutoDetect && AutoDetectTargetLanguage && !_hasCompletedFirstTranslation)
+                {
+                    var bestTarget = TryAutoSelectTargetLanguageByHeuristic(detectedSource);
+                    if (bestTarget != null && bestTarget != TargetLanguage)
+                    {
+                        _isHeuristicReTranslating = true;
+                        var reResult = await _translationService.TranslateAsync(sourceText, bestTarget, detectedSource, _translationCts.Token);
+                        if (_translationCts.Token.IsCancellationRequested)
+                        {
+                            _isHeuristicReTranslating = false;
+                            _hasCompletedFirstTranslation = true;
+                            return;
+                        }
+                        if (reResult.IsSuccess)
+                        {
+                            CurrentTranslation = reResult;
+                            RecordLanguagePair(detectedSource, bestTarget);
+                        }
+                        SourceLanguage = detectedSource;
+                        TargetLanguage = bestTarget;
+                        _isHeuristicReTranslating = false;
+                        _hasCompletedFirstTranslation = true;
+                        return;
+                    }
+                    RecordLanguagePair(detectedSource, TargetLanguage);
+                    _hasCompletedFirstTranslation = true;
+                    SourceLanguage = detectedSource;
+                }
+                else if (wasAutoDetect && _settingsService.Settings.AutoDetectSource)
+                {
+                    RecordLanguagePair(detectedSource, TargetLanguage);
+                    var remembered = TryGetRememberedTarget(detectedSource);
+                    if (remembered != null && remembered != TargetLanguage)
+                    {
+                        TargetLanguage = remembered;
+                    }
+                }
+                _hasCompletedFirstTranslation = true;
+            }
             DebugLog.Write($"TranslateAsync EXIT: gen={_translationGeneration}, CurrentTranslation={CurrentTranslation != null}");
         }
         catch (TaskCanceledException)
@@ -227,6 +343,116 @@ public partial class PopupViewModel : ObservableObject, IDisposable
         {
             await TranslateAsync(CurrentTranslation.OriginalText, isReTranslation: true);
         }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanSwapLanguages))]
+    private async Task SwapLanguagesAsync()
+    {
+        var tempText = CurrentTranslation?.MainTranslation ?? string.Empty;
+
+        _isSwapping = true;
+
+        if (AutoDetectSource && SourceLanguage == "auto")
+        {
+            TargetLanguage = _lastDetectedSourceCode;
+        }
+        else
+        {
+            var swapSource = SourceLanguage;
+            SourceLanguage = TargetLanguage;
+            TargetLanguage = swapSource;
+        }
+
+        _isSwapping = false;
+
+        if (!string.IsNullOrEmpty(tempText))
+        {
+            await TranslateAsync(tempText, isReTranslation: true);
+        }
+    }
+
+    private bool CanSwapLanguages()
+    {
+        if (SourceLanguage != "auto") return true;
+        return !string.IsNullOrEmpty(_lastDetectedSourceCode);
+    }
+
+    private void RecordLanguagePair(string sourceCode, string targetCode)
+    {
+        var pairs = _settingsService.Settings.RecentLanguagePairs;
+        if (pairs.TryGetValue(sourceCode, out var existing) && existing == targetCode)
+            return;
+        pairs[sourceCode] = targetCode;
+        _ = _settingsService.SaveAsync();
+    }
+
+    private void TryAutoSelectTargetLanguage(string sourceCode)
+    {
+        var manual = _settingsService.Settings.ManualLanguagePairs;
+        if (manual.TryGetValue(sourceCode, out var manualTarget) && manualTarget != TargetLanguage)
+        {
+            TargetLanguage = manualTarget;
+            return;
+        }
+
+        var auto = _settingsService.Settings.RecentLanguagePairs;
+        if (auto.TryGetValue(sourceCode, out var autoTarget) && autoTarget != TargetLanguage)
+        {
+            TargetLanguage = autoTarget;
+        }
+    }
+
+    private string? TryAutoSelectTargetLanguageByHeuristic(string sourceCode)
+    {
+        var manual = _settingsService.Settings.ManualLanguagePairs;
+        var auto = _settingsService.Settings.RecentLanguagePairs;
+
+        if (manual.TryGetValue(sourceCode, out var manualTarget) && manualTarget != TargetLanguage)
+            return manualTarget;
+        if (auto.TryGetValue(sourceCode, out var autoTarget) && autoTarget != TargetLanguage)
+            return autoTarget;
+
+        var systemLang = LanguageHelper.GetSystemLanguageCode();
+        if (!string.IsNullOrEmpty(systemLang) && !sourceCode.Equals(systemLang, StringComparison.OrdinalIgnoreCase))
+            return systemLang;
+
+        var allPairs = GetAllLanguagePairs();
+        if (allPairs.Count > 0)
+        {
+            var lastTarget = allPairs.Values.LastOrDefault(t => !t.Equals(sourceCode, StringComparison.OrdinalIgnoreCase));
+            if (lastTarget != null)
+                return lastTarget;
+        }
+
+        var fallback = _settingsService.Settings.DefaultTargetLanguage;
+        if (!string.IsNullOrEmpty(fallback) && !fallback.Equals(sourceCode, StringComparison.OrdinalIgnoreCase))
+            return fallback;
+
+        return null;
+    }
+
+    private Dictionary<string, string> GetAllLanguagePairs()
+    {
+        var all = new Dictionary<string, string>(_settingsService.Settings.ManualLanguagePairs);
+        foreach (var kvp in _settingsService.Settings.RecentLanguagePairs)
+        {
+            if (!all.ContainsKey(kvp.Key))
+                all[kvp.Key] = kvp.Value;
+        }
+        return all;
+    }
+
+    private string? TryGetRememberedTarget(string sourceCode)
+    {
+        var manual = _settingsService.Settings.ManualLanguagePairs;
+        if (manual.TryGetValue(sourceCode, out var manualTarget))
+            return manualTarget;
+
+        var auto = _settingsService.Settings.RecentLanguagePairs;
+        if (auto.TryGetValue(sourceCode, out var autoTarget))
+            return autoTarget;
+
+        return null;
     }
 
     public void HideWindow()

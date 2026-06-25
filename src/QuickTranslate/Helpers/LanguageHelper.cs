@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Linq;
 
 namespace QuickTranslate.Helpers;
@@ -41,5 +42,10 @@ public static class LanguageHelper
         catch { /* Ignore */ }
 
         return "en"; // Default fallback
+    }
+
+    public static string GetSystemLanguageCode()
+    {
+        return CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
     }
 }
