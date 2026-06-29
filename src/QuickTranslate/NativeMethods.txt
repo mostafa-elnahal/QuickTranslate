@@ -18,3 +18,10 @@ INPUT
 KEYBDINPUT
 SendInput
 
+GetForegroundWindow
+GetWindowThreadProcessId
+GetGUIThreadInfo
+SendMessage
+WM_GETTEXT
+WM_GETTEXTLENGTH
+EM_GETSEL
