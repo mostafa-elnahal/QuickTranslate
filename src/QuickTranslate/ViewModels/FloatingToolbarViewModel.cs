@@ -19,7 +19,6 @@ public partial class FloatingToolbarViewModel : ObservableObject
     private readonly IOcrService _ocrService;
     private readonly ISettingsService _settingsService;
     private readonly DispatcherTimer _autoDismissTimer;
-    private long _lastDismissTime;
     private long _lastInteractionTime;
     private System.Drawing.Bitmap? _ocrBitmap;
 
@@ -119,14 +118,7 @@ public partial class FloatingToolbarViewModel : ObservableObject
 
     public void Show(string text, ToolbarDisplayMode mode)
     {
-        long elapsed = Environment.TickCount64 - _lastDismissTime;
-        if (elapsed < 100)
-        {
-            DebugLog.Write($"Show: GUARDED (only {elapsed}ms since dismiss), text='{text}'");
-            return;
-        }
-
-        DebugLog.Write($"Show: text='{text}', mode={mode}, elapsed={elapsed}ms since dismiss");
+        DebugLog.Write($"Show: text='{text}', mode={mode}");
 
         CapturedText = text;
         Mode = mode;
@@ -213,7 +205,6 @@ public partial class FloatingToolbarViewModel : ObservableObject
     private void Dismiss()
     {
         DebugLog.Write($"Dismiss: IsVisible={IsVisible}, IsExpanded={IsExpanded}");
-        _lastDismissTime = Environment.TickCount64;
         _autoDismissTimer.Stop();
         DisposeOcrBitmap();
         IsVisible = false;

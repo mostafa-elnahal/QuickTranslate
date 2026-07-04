@@ -83,6 +83,10 @@ internal static class ClipboardHelper
         return snapshot;
     }
 
+    private const string EXCLUDE_FROM_HISTORY = "ExcludeClipboardContentFromMonitorProcessing";
+    private const string CAN_INCLUDE_IN_HISTORY = "CanIncludeInClipboardHistory";
+    private const string CAN_UPLOAD_TO_CLOUD = "CanUploadToCloudClipboard";
+
     /// <summary>
     /// Restores a clipboard snapshot WITHOUT adding to clipboard history.
     /// </summary>
@@ -90,58 +94,31 @@ internal static class ClipboardHelper
     {
         try
         {
-            if (!PInvoke.OpenClipboard(new HWND(System.IntPtr.Zero)))
-            {
-                System.Diagnostics.Debug.WriteLine("Failed to open clipboard for restore, using fallback");
-                RestoreFallback(snapshot);
-                return;
-            }
+            var dataObject = new DataObject();
 
-            try
-            {
-                PInvoke.EmptyClipboard();
-
-                // Set exclusion flags FIRST
-                SetClipboardExclusionFlags();
-
-                // Restore text
-                if (snapshot.Text != null)
-                {
-                    SetClipboardText(snapshot.Text);
-                }
-            }
-            finally
-            {
-                PInvoke.CloseClipboard();
-            }
-
-            // Files and images are easier to restore via .NET after setting exclusion flags
+            // Set content if present
+            if (snapshot.Text != null)
+                dataObject.SetText(snapshot.Text);
+            if (snapshot.Html != null)
+                dataObject.SetData(DataFormats.Html, snapshot.Html);
+            if (snapshot.Rtf != null)
+                dataObject.SetData(DataFormats.Rtf, snapshot.Rtf);
             if (snapshot.Files != null && snapshot.Files.Count > 0)
-            {
-                try
-                {
-                    Clipboard.SetFileDropList(snapshot.Files);
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Failed to restore files: {ex.Message}");
-                }
-            }
-            else if (snapshot.Image != null)
-            {
-                try
-                {
-                    Clipboard.SetImage(snapshot.Image);
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Failed to restore image: {ex.Message}");
-                }
-            }
+                dataObject.SetFileDropList(snapshot.Files);
+            if (snapshot.Image != null)
+                dataObject.SetImage(snapshot.Image);
+
+            // Add exclusion flags (DWORD = 4 bytes)
+            byte[] zeroDword = BitConverter.GetBytes(0);
+            dataObject.SetData(EXCLUDE_FROM_HISTORY, zeroDword);
+            dataObject.SetData(CAN_INCLUDE_IN_HISTORY, zeroDword);
+            dataObject.SetData(CAN_UPLOAD_TO_CLOUD, zeroDword);
+
+            SetDataObjectWithRetries(dataObject, true);
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Native restore failed: {ex.Message}, using fallback");
+            System.Diagnostics.Debug.WriteLine($"Restore without history failed: {ex.Message}, trying fallback");
             RestoreFallback(snapshot);
         }
     }
@@ -151,93 +128,25 @@ internal static class ClipboardHelper
     /// </summary>
     public static void ClearWithoutHistory()
     {
-        try
-        {
-            if (!PInvoke.OpenClipboard(new HWND(System.IntPtr.Zero)))
-            {
-                try
-                {
-                    PInvoke.EmptyClipboard();
-                    SetClipboardExclusionFlags();
-                }
-                finally
-                {
-                    PInvoke.CloseClipboard();
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"Clear without history failed: {ex.Message}");
-        }
+        ClearSafe();
     }
 
-    // Format names for clipboard history exclusion
-    private const string EXCLUDE_FROM_HISTORY = "ExcludeClipboardContentFromMonitorProcessing";
-    private const string CAN_INCLUDE_IN_HISTORY = "CanIncludeInClipboardHistory";
-
-    /// <summary>
-    /// Sets clipboard exclusion flags to prevent history entries.
-    /// </summary>
-    private static void SetClipboardExclusionFlags()
+    private static void SetDataObjectWithRetries(DataObject dataObject, bool copy)
     {
-        uint excludeFormat = PInvoke.RegisterClipboardFormat(EXCLUDE_FROM_HISTORY);
-        uint canIncludeFormat = PInvoke.RegisterClipboardFormat(CAN_INCLUDE_IN_HISTORY);
-
-        // ExcludeClipboardContentFromMonitorProcessing
-        Windows.Win32.Foundation.HGLOBAL excludeData = PInvoke.GlobalAlloc(Windows.Win32.System.Memory.GLOBAL_ALLOC_FLAGS.GMEM_MOVEABLE, (nuint)sizeof(int));
-        if (excludeData != IntPtr.Zero)
+        for (int i = 0; i < 10; i++)
         {
-            unsafe
+            try
             {
-                void* excludePtr = PInvoke.GlobalLock(excludeData);
-                if (excludePtr != null)
-                {
-                    Marshal.WriteInt32((IntPtr)excludePtr, 0);
-                    PInvoke.GlobalUnlock(excludeData);
-                }
+                Clipboard.SetDataObject(dataObject, copy);
+                return;
             }
-            PInvoke.SetClipboardData(excludeFormat, (Windows.Win32.Foundation.HANDLE)(IntPtr)excludeData);
-        }
-
-        // CanIncludeInClipboardHistory = 0 (false)
-        Windows.Win32.Foundation.HGLOBAL canIncludeData = PInvoke.GlobalAlloc(Windows.Win32.System.Memory.GLOBAL_ALLOC_FLAGS.GMEM_MOVEABLE, (nuint)sizeof(int));
-        if (canIncludeData != IntPtr.Zero)
-        {
-            unsafe
+            catch (Exception ex)
             {
-                void* canIncludePtr = PInvoke.GlobalLock(canIncludeData);
-                if (canIncludePtr != null)
-                {
-                    Marshal.WriteInt32((IntPtr)canIncludePtr, 0);
-                    PInvoke.GlobalUnlock(canIncludeData);
-                }
+                System.Diagnostics.Debug.WriteLine($"SetDataObject failed (attempt {i + 1}): {ex.Message}");
+                System.Threading.Thread.Sleep(10);
             }
-            PInvoke.SetClipboardData(canIncludeFormat, (Windows.Win32.Foundation.HANDLE)(IntPtr)canIncludeData);
         }
-    }
-
-    /// <summary>
-    /// Sets Unicode text to clipboard using Win32 API.
-    /// </summary>
-    private static void SetClipboardText(string text)
-    {
-        byte[] textBytes = Encoding.Unicode.GetBytes(text + "\0");
-        Windows.Win32.Foundation.HGLOBAL hGlobal = PInvoke.GlobalAlloc(Windows.Win32.System.Memory.GLOBAL_ALLOC_FLAGS.GMEM_MOVEABLE, (nuint)textBytes.Length);
-
-        if (hGlobal != IntPtr.Zero)
-        {
-            unsafe
-            {
-                void* pGlobal = PInvoke.GlobalLock(hGlobal);
-                if (pGlobal != null)
-                {
-                    Marshal.Copy(textBytes, 0, (IntPtr)pGlobal, textBytes.Length);
-                    PInvoke.GlobalUnlock(hGlobal);
-                }
-            }
-            PInvoke.SetClipboardData(13u /* CF_UNICODETEXT */, (Windows.Win32.Foundation.HANDLE)(IntPtr)hGlobal);
-        }
+        throw new System.Runtime.InteropServices.ExternalException("Failed to set data object after retries.");
     }
 
     /// <summary>
@@ -328,6 +237,12 @@ internal static class ClipboardHelper
         inputShiftUp.Anonymous.ki.dwFlags = KEYBD_EVENT_FLAGS.KEYEVENTF_KEYUP;
         inputShiftUp.Anonymous.ki.dwExtraInfo = QTAG_EXTRA_INFO;
 
+        var inputAltUp = new INPUT();
+        inputAltUp.type = INPUT_TYPE.INPUT_KEYBOARD;
+        inputAltUp.Anonymous.ki.wVk = Windows.Win32.UI.Input.KeyboardAndMouse.VIRTUAL_KEY.VK_MENU;
+        inputAltUp.Anonymous.ki.dwFlags = KEYBD_EVENT_FLAGS.KEYEVENTF_KEYUP;
+        inputAltUp.Anonymous.ki.dwExtraInfo = QTAG_EXTRA_INFO;
+
         // Ctrl Down
         var inputCtrlDown = new INPUT();
         inputCtrlDown.type = INPUT_TYPE.INPUT_KEYBOARD;
@@ -358,7 +273,7 @@ internal static class ClipboardHelper
 
         // 2. Send inputs
         // Release modifiers first in a separate batch to ensure state is clean
-        Span<INPUT> inputsRelease = stackalloc INPUT[] { inputShiftUp };
+        Span<INPUT> inputsRelease = stackalloc INPUT[] { inputShiftUp, inputAltUp };
 
         Span<INPUT> inputsDown = stackalloc INPUT[] { inputCtrlDown, inputCDown };
         Span<INPUT> inputsUp = stackalloc INPUT[] { inputCUp, inputCtrlUp };
