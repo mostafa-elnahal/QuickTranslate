@@ -20,6 +20,7 @@ namespace QuickTranslate;
 public partial class App : Application
 {
     private IServiceProvider? _serviceProvider;
+    private MainWindow? _mainWindow;
 
     public App()
     {
@@ -51,8 +52,14 @@ public partial class App : Application
         toolbarVm.TranslateRequested += OnToolbarTranslateRequested;
         toolbarVm.PronounceRequested += OnToolbarPronounceRequested;
 
-        // Register hotkeys
-        RegisterGlobalHotkeys();
+        // Initialize MainWindow first so global hotkeys can bind to its handle.
+        var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
+        _mainWindow = mainWindow;
+        mainWindow.Show();
+
+        // Register hotkeys (bound to the main window handle, so the popups
+        // are only constructed lazily on first use).
+        RegisterGlobalHotkeys(mainWindow);
 
         // Listen for setting changes
         var settingsService = _serviceProvider.GetRequiredService<ISettingsService>();
@@ -65,10 +72,6 @@ public partial class App : Application
         {
             selectionMonitor.Start();
         }
-
-        // Initialize MainWindow
-        var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
-        mainWindow.Show();
 
         // Wire tray icon to show main window
         trayIconService.ShowMainWindowRequested += (s, args) =>
@@ -158,12 +161,12 @@ public partial class App : Application
 
     private void OnSettingsChanged(object? sender, EventArgs e)
     {
-        if (_serviceProvider != null)
+        if (_serviceProvider != null && _mainWindow != null)
         {
             var settingsService = _serviceProvider.GetRequiredService<ISettingsService>();
-            RegisterTranslationHotkey(settingsService.Settings.Hotkey);
-            RegisterPronunciationHotkey(settingsService.Settings?.PronunciationHotkey ?? "Ctrl+Shift+P");
-            RegisterOcrHotkey(settingsService.Settings?.OcrHotkey ?? Constants.Defaults.OcrHotkey);
+            RegisterTranslationHotkey(settingsService.Settings.Hotkey, _mainWindow);
+            RegisterPronunciationHotkey(settingsService.Settings?.PronunciationHotkey ?? "Ctrl+Shift+P", _mainWindow);
+            RegisterOcrHotkey(settingsService.Settings?.OcrHotkey ?? Constants.Defaults.OcrHotkey, _mainWindow);
 
             // Update OCR language
             var ocrService = _serviceProvider.GetRequiredService<IOcrService>();
@@ -222,7 +225,7 @@ public partial class App : Application
     private const int HOTKEY_ID_PRONUNCIATION = 2;
     private const int HOTKEY_ID_OCR = 3;
 
-    private void RegisterGlobalHotkeys()
+    private void RegisterGlobalHotkeys(Window mainWindow)
     {
         if (_serviceProvider == null) return;
         var hotkeyService = _serviceProvider.GetRequiredService<IHotkeyService>();
@@ -231,26 +234,25 @@ public partial class App : Application
         hotkeyService.HotkeyPressed += OnHotkeyPressed;
 
         // Register Translation hotkey
-        RegisterTranslationHotkey(settingsService.Settings.Hotkey);
+        RegisterTranslationHotkey(settingsService.Settings.Hotkey, mainWindow);
 
         // Register Pronunciation hotkey
-        RegisterPronunciationHotkey(settingsService.Settings?.PronunciationHotkey ?? "Ctrl+Shift+P");
+        RegisterPronunciationHotkey(settingsService.Settings?.PronunciationHotkey ?? "Ctrl+Shift+P", mainWindow);
 
         // Register OCR hotkey
-        RegisterOcrHotkey(settingsService.Settings?.OcrHotkey ?? Constants.Defaults.OcrHotkey);
+        RegisterOcrHotkey(settingsService.Settings?.OcrHotkey ?? Constants.Defaults.OcrHotkey, mainWindow);
 
         // Initialize OCR language
         var ocrService = _serviceProvider.GetRequiredService<IOcrService>();
         ocrService.CurrentLanguageCode = settingsService.Settings?.OcrLanguage ?? Constants.Defaults.OcrLanguage;
     }
 
-    private void RegisterTranslationHotkey(string hotkey)
+    private void RegisterTranslationHotkey(string hotkey, Window mainWindow)
     {
         if (_serviceProvider == null) return;
         var hotkeyService = _serviceProvider.GetRequiredService<IHotkeyService>();
-        var translationPopup = _serviceProvider.GetRequiredService<TranslationPopup>();
 
-        bool success = hotkeyService.Register(HOTKEY_ID_TRANSLATE, hotkey, translationPopup);
+        bool success = hotkeyService.Register(HOTKEY_ID_TRANSLATE, hotkey, mainWindow);
         if (!success)
         {
             MessageBox.Show(
@@ -261,13 +263,12 @@ public partial class App : Application
         }
     }
 
-    private void RegisterPronunciationHotkey(string hotkey)
+    private void RegisterPronunciationHotkey(string hotkey, Window mainWindow)
     {
         if (_serviceProvider == null) return;
         var hotkeyService = _serviceProvider.GetRequiredService<IHotkeyService>();
-        var pronunciationPopup = _serviceProvider.GetRequiredService<PronunciationPopup>();
 
-        bool success = hotkeyService.Register(HOTKEY_ID_PRONUNCIATION, hotkey, pronunciationPopup);
+        bool success = hotkeyService.Register(HOTKEY_ID_PRONUNCIATION, hotkey, mainWindow);
         if (!success)
         {
             MessageBox.Show(
@@ -278,13 +279,12 @@ public partial class App : Application
         }
     }
 
-    private void RegisterOcrHotkey(string hotkey)
+    private void RegisterOcrHotkey(string hotkey, Window mainWindow)
     {
         if (_serviceProvider == null) return;
         var hotkeyService = _serviceProvider.GetRequiredService<IHotkeyService>();
-        var translationPopup = _serviceProvider.GetRequiredService<TranslationPopup>();
 
-        bool success = hotkeyService.Register(HOTKEY_ID_OCR, hotkey, translationPopup);
+        bool success = hotkeyService.Register(HOTKEY_ID_OCR, hotkey, mainWindow);
         if (!success)
         {
             MessageBox.Show(
