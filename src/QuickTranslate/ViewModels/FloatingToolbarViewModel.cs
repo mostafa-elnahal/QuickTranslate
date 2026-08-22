@@ -6,7 +6,6 @@ using System.Windows;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using QuickTranslate.Helpers;
 using QuickTranslate.Models;
 using QuickTranslate.Services;
 using QuickTranslate.Services.Input;
@@ -30,20 +29,11 @@ public partial class FloatingToolbarViewModel : ObservableObject
 
     public event Action? DismissRequested;
 
-    [ObservableProperty]
-    private bool _isVisible;
-
-    [ObservableProperty]
-    private bool _isExpanded;
-
-    [ObservableProperty]
-    private string _capturedText = string.Empty;
-
-    [ObservableProperty]
-    private ToolbarDisplayMode _mode = ToolbarDisplayMode.Selection;
-
-    [ObservableProperty]
-    private string _ocrLanguage;
+    [ObservableProperty] private bool _isVisible;
+    [ObservableProperty] private bool _isExpanded;
+    [ObservableProperty] private string _capturedText = string.Empty;
+    [ObservableProperty] private ToolbarDisplayMode _mode = ToolbarDisplayMode.Selection;
+    [ObservableProperty] private string _ocrLanguage;
 
     public ObservableCollection<OcrLanguage> OcrAvailableLanguages { get; } = new();
 
@@ -66,7 +56,7 @@ public partial class FloatingToolbarViewModel : ObservableObject
         {
             Interval = TimeSpan.FromSeconds(3)
         };
-        _autoDismissTimer.Tick += (_, _) => { DebugLog.Write("AutoDismissTimer fired"); Dismiss(); };
+        _autoDismissTimer.Tick += (_, _) => { Dismiss(); };
 
         _ocrLanguage = _settingsService.Settings.OcrLanguage;
         LoadOcrLanguages();
@@ -103,23 +93,18 @@ public partial class FloatingToolbarViewModel : ObservableObject
 
     private void OnForegroundWindowChanged(IntPtr hwnd)
     {
-        DebugLog.Write($"OnForegroundWindowChanged: IsVisible={IsVisible}, hwnd={hwnd}");
         if (!IsVisible) return;
 
         if (Environment.TickCount64 - _lastInteractionTime < 500)
         {
-            DebugLog.Write($"OnForegroundWindowChanged: skipped (recent interaction)");
             return;
         }
 
-        DebugLog.Write($"OnForegroundWindowChanged: calling Dismiss");
         Dismiss();
     }
 
     public void Show(string text, ToolbarDisplayMode mode)
     {
-        DebugLog.Write($"Show: text='{text}', mode={mode}");
-
         CapturedText = text;
         Mode = mode;
         IsExpanded = mode == ToolbarDisplayMode.Ocr;
@@ -127,6 +112,8 @@ public partial class FloatingToolbarViewModel : ObservableObject
 
         RestartAutoDismissTimer();
     }
+
+    public void Show(ToolbarDisplayMode mode) => Show(string.Empty, mode);
 
     public void OnMouseEnter()
     {
@@ -156,55 +143,69 @@ public partial class FloatingToolbarViewModel : ObservableObject
     [RelayCommand]
     private async Task Translate()
     {
-        string text = CapturedText;
+        string text = await ResolveTargetTextAsync();
 
-        if (Mode == ToolbarDisplayMode.Ocr && _ocrBitmap != null)
-        {
-            text = await _ocrService.RecognizeFromBitmapAsync(_ocrBitmap, OcrLanguage);
-        }
-
-        DebugLog.Write($"TranslateCommand: text='{text}', raising TranslateRequested");
         Dismiss();
-        TranslateRequested?.Invoke(text);
+
+        if (!string.IsNullOrWhiteSpace(text))
+        {
+            TranslateRequested?.Invoke(text);
+        }
     }
 
     [RelayCommand]
     private async Task Pronounce()
     {
-        string text = CapturedText;
+        string text = await ResolveTargetTextAsync();
 
-        if (Mode == ToolbarDisplayMode.Ocr && _ocrBitmap != null)
-        {
-            text = await _ocrService.RecognizeFromBitmapAsync(_ocrBitmap, OcrLanguage);
-        }
-
-        DebugLog.Write($"PronounceCommand: text='{text}', raising PronounceRequested");
         Dismiss();
-        PronounceRequested?.Invoke(text);
+
+        if (!string.IsNullOrWhiteSpace(text))
+        {
+            PronounceRequested?.Invoke(text);
+        }
     }
 
     [RelayCommand]
     private async Task Copy()
     {
-        string text = CapturedText;
+        string text = await ResolveTargetTextAsync();
 
-        if (Mode == ToolbarDisplayMode.Ocr && _ocrBitmap != null)
-        {
-            text = await _ocrService.RecognizeFromBitmapAsync(_ocrBitmap, OcrLanguage);
-        }
+        Dismiss();
 
-        DebugLog.Write($"CopyCommand: text='{text}', copying then dismissing");
         if (!string.IsNullOrEmpty(text))
         {
             _clipboardService.SetText(text);
         }
-        Dismiss();
+    }
+
+    private async Task<string> ResolveTargetTextAsync()
+    {
+        if (Mode == ToolbarDisplayMode.Ocr && _ocrBitmap != null)
+        {
+            return await _ocrService.RecognizeFromBitmapAsync(_ocrBitmap, OcrLanguage);
+        }
+
+        if (!string.IsNullOrEmpty(CapturedText))
+        {
+            return CapturedText;
+        }
+
+        // On-demand lazy capture for Selection mode
+        try
+        {
+            return await _clipboardService.CaptureSelectionAsync();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"On-demand capture failed: {ex.Message}");
+            return string.Empty;
+        }
     }
 
     [RelayCommand]
     private void Dismiss()
     {
-        DebugLog.Write($"Dismiss: IsVisible={IsVisible}, IsExpanded={IsExpanded}");
         _autoDismissTimer.Stop();
         DisposeOcrBitmap();
         IsVisible = false;

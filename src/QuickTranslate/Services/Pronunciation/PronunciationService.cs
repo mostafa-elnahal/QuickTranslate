@@ -55,6 +55,8 @@ public class PronunciationService : IPronunciationService
 
     public async Task<PronunciationResult<PronunciationData>> GetPronunciationAsync(string text)
     {
+        _settingsService.EnsureApiKeysDecrypted();
+
         var data = new PronunciationData { OriginalText = text };
 
         if (string.IsNullOrWhiteSpace(text))

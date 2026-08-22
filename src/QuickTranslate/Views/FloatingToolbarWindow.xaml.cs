@@ -3,7 +3,6 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using QuickTranslate.Helpers;
 using QuickTranslate.Models;
 using QuickTranslate.Services.Input;
 using QuickTranslate.ViewModels;
@@ -67,62 +66,77 @@ public partial class FloatingToolbarWindow : Window
         if (!PInvoke.GetCursorPos(out System.Drawing.Point cursorPos))
             return;
 
+        PositionNearPoint(new Point(cursorPos.X, cursorPos.Y));
+    }
+
+    /// <summary>
+    /// Positions the toolbar near a specified physical screen point.
+    /// DPI-aware, with screen-edge clamping.
+    /// </summary>
+    private void PositionNearPoint(Point physicalCursorPoint)
+    {
         var dpi = VisualTreeHelper.GetDpi(this);
         double dpiScaleX = dpi.DpiScaleX;
         double dpiScaleY = dpi.DpiScaleY;
 
-            // Convert cursor position from physical pixels to DIPs
-            double cursorX = cursorPos.X / dpiScaleX;
-            double cursorY = cursorPos.Y / dpiScaleY;
+        // Convert cursor position from physical pixels to DIPs
+        double cursorX = physicalCursorPoint.X / dpiScaleX;
+        double cursorY = physicalCursorPoint.Y / dpiScaleY;
 
-            // Get the working area of the screen containing the cursor
-            var screen = WinForms.Screen.FromPoint(
-                new System.Drawing.Point(cursorPos.X, cursorPos.Y));
+        // Get the working area of the screen containing the cursor
+        var screen = WinForms.Screen.FromPoint(
+            new System.Drawing.Point((int)physicalCursorPoint.X, (int)physicalCursorPoint.Y));
 
-            double screenLeft = screen.WorkingArea.Left / dpiScaleX;
-            double screenTop = screen.WorkingArea.Top / dpiScaleY;
-            double screenRight = screen.WorkingArea.Right / dpiScaleX;
-            double screenBottom = screen.WorkingArea.Bottom / dpiScaleY;
+        double screenLeft = screen.WorkingArea.Left / dpiScaleX;
+        double screenTop = screen.WorkingArea.Top / dpiScaleY;
+        double screenRight = screen.WorkingArea.Right / dpiScaleX;
+        double screenBottom = screen.WorkingArea.Bottom / dpiScaleY;
 
-            double windowWidth = ActualWidth > 0 ? ActualWidth : 40;
-            double windowHeight = ActualHeight > 0 ? ActualHeight : 40;
+        double windowWidth = ActualWidth > 0 ? ActualWidth : 40;
+        double windowHeight = ActualHeight > 0 ? ActualHeight : 40;
 
-            // Default: below and slightly left of cursor (so cursor doesn't overlap)
-            double left = cursorX - (windowWidth / 2);
-            double top = cursorY + 15;
+        // Default: below and slightly left/centered of cursor
+        double left = cursorX - (windowWidth / 2);
+        double top = cursorY + 15;
 
-            // Screen-edge clamping
-            if (left + windowWidth > screenRight)
-                left = screenRight - windowWidth;
-            if (left < screenLeft)
-                left = screenLeft;
+        // Screen-edge clamping
+        if (left + windowWidth > screenRight)
+            left = screenRight - windowWidth;
+        if (left < screenLeft)
+            left = screenLeft;
 
-            if (top + windowHeight > screenBottom)
-                top = cursorY - windowHeight - 10; // Flip above cursor
-            if (top < screenTop)
-                top = screenTop;
+        if (top + windowHeight > screenBottom)
+            top = cursorY - windowHeight - 10; // Flip above cursor
+        if (top < screenTop)
+            top = screenTop;
 
-            Left = left;
-            Top = top;
+        Left = left;
+        Top = top;
+    }
+
+    public void ShowToolbar(Point physicalCursorPoint, ToolbarDisplayMode mode)
+    {
+        PositionNearPoint(physicalCursorPoint);
+        _viewModel.Show(string.Empty, mode);
+
+        if (Visibility != Visibility.Visible)
+        {
+            Show();
+        }
     }
 
     public void ShowToolbar(string text, ToolbarDisplayMode mode)
     {
-        DebugLog.Write($"ShowToolbar: text='{text}', mode={mode}, Visibility={Visibility}, IsVisible={_viewModel.IsVisible}");
-
         // Pre-position window synchronously before WPF updates visibility bindings
         // to prevent flickering in the old location.
         PositionNearCursor();
 
         _viewModel.Show(text, mode);
-        
-        DebugLog.Write($"ShowToolbar: after Show(), IsVisible={_viewModel.IsVisible}, Visibility={Visibility}, CapturedText='{_viewModel.CapturedText}'");
 
         // Ensure the WPF window is logically shown and participates in layout
         if (Visibility != Visibility.Visible)
         {
             Show();
-            DebugLog.Write($"ShowToolbar: Show() called, Visibility now={Visibility}");
         }
     }
 
@@ -132,8 +146,6 @@ public partial class FloatingToolbarWindow : Window
     /// </summary>
     public void ShowToolbar(System.Drawing.Bitmap bitmap, System.Drawing.Rectangle selectionPhysicalPx)
     {
-        DebugLog.Write($"ShowToolbar (OCR): bitmap={bitmap.Width}x{bitmap.Height}, rect=({selectionPhysicalPx.X},{selectionPhysicalPx.Y},{selectionPhysicalPx.Width},{selectionPhysicalPx.Height})");
-
         var dpi = VisualTreeHelper.GetDpi(this);
 
         var selDip = new Rect(
@@ -197,7 +209,6 @@ public partial class FloatingToolbarWindow : Window
     {
         if (!IsVisible)
         {
-            DebugLog.Write($"OnGlobalPointerDown: ignored (IsVisible=false), screen=({screenPoint.X},{screenPoint.Y})");
             return;
         }
 
@@ -206,27 +217,21 @@ public partial class FloatingToolbarWindow : Window
         bool insideWindow = localPoint.X >= 0 && localPoint.X <= ActualWidth &&
                             localPoint.Y >= 0 && localPoint.Y <= ActualHeight;
 
-        DebugLog.Write($"OnGlobalPointerDown: screen=({screenPoint.X},{screenPoint.Y}), local=({localPoint.X},{localPoint.Y}), ActualSize=({ActualWidth},{ActualHeight}), insideWindow={insideWindow}");
-
         if (insideWindow)
         {
             _viewModel.OnPointerDownInsideToolbar();
         }
         else
         {
-            DebugLog.Write($"OnGlobalPointerDown: DISMISSING (click outside)");
             _viewModel.DismissCommand.Execute(null);
         }
     }
 
     private async void Window_Deactivated(object sender, EventArgs e)
     {
-        DebugLog.Write($"Window_Deactivated: IsActive={IsActive}, IsVisible={_viewModel.IsVisible}, waiting 100ms...");
         await Task.Delay(100);
-        DebugLog.Write($"Window_Deactivated: after delay, IsActive={IsActive}, IsVisible={_viewModel.IsVisible}");
         if (!IsActive && IsVisible)
         {
-            DebugLog.Write($"Window_Deactivated: calling DismissCommand");
             _viewModel.DismissCommand.Execute(null);
         }
     }

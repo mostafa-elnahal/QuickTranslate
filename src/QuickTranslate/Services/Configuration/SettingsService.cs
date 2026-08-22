@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using QuickTranslate.Models;
 
@@ -13,6 +14,7 @@ public class SettingsService : ISettingsService
 {
     private readonly string _settingsPath;
     private AppSettings _settings;
+    private int _keysDecrypted; // 0 = not yet decrypted, 1 = decrypted
 
     public AppSettings Settings => _settings;
 
@@ -92,45 +94,53 @@ public class SettingsService : ISettingsService
         if (loaded != null)
         {
             _settings = loaded;
+            // API keys are decrypted lazily via EnsureApiKeysDecrypted() so the
+            // (potentially expensive) DPAPI round-trip does not block startup.
+        }
+    }
 
-            // Decrypt API Keys
-            if (!string.IsNullOrEmpty(_settings.EncryptedGeminiApiKey))
+    public void EnsureApiKeysDecrypted()
+    {
+        // Run the decryption work exactly once, even if called concurrently.
+        if (Interlocked.Exchange(ref _keysDecrypted, 1) == 1)
+            return;
+
+        if (!string.IsNullOrEmpty(_settings.EncryptedGeminiApiKey))
+        {
+            try
             {
-                try
-                {
-                    _settings.GeminiApiKey = Unprotect(_settings.EncryptedGeminiApiKey);
-                }
-                catch (System.Security.Cryptography.CryptographicException ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Cryptography error decrypting Gemini API key: {ex.Message}");
-                    _settings.GeminiApiKey = string.Empty;
-                }
+                _settings.GeminiApiKey = Unprotect(_settings.EncryptedGeminiApiKey);
             }
-
-            if (!string.IsNullOrEmpty(_settings.EncryptedGcpApiKey))
+            catch (System.Security.Cryptography.CryptographicException ex)
             {
-                try
-                {
-                    _settings.GcpApiKey = Unprotect(_settings.EncryptedGcpApiKey);
-                }
-                catch (System.Security.Cryptography.CryptographicException ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Cryptography error decrypting GCP API key: {ex.Message}");
-                    _settings.GcpApiKey = string.Empty;
-                }
+                System.Diagnostics.Debug.WriteLine($"Cryptography error decrypting Gemini API key: {ex.Message}");
+                _settings.GeminiApiKey = string.Empty;
             }
+        }
 
-            if (!string.IsNullOrEmpty(_settings.EncryptedElevenLabsApiKey))
+        if (!string.IsNullOrEmpty(_settings.EncryptedGcpApiKey))
+        {
+            try
             {
-                try
-                {
-                    _settings.ElevenLabsApiKey = Unprotect(_settings.EncryptedElevenLabsApiKey);
-                }
-                catch (System.Security.Cryptography.CryptographicException ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Cryptography error decrypting ElevenLabs API key: {ex.Message}");
-                    _settings.ElevenLabsApiKey = string.Empty;
-                }
+                _settings.GcpApiKey = Unprotect(_settings.EncryptedGcpApiKey);
+            }
+            catch (System.Security.Cryptography.CryptographicException ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Cryptography error decrypting GCP API key: {ex.Message}");
+                _settings.GcpApiKey = string.Empty;
+            }
+        }
+
+        if (!string.IsNullOrEmpty(_settings.EncryptedElevenLabsApiKey))
+        {
+            try
+            {
+                _settings.ElevenLabsApiKey = Unprotect(_settings.EncryptedElevenLabsApiKey);
+            }
+            catch (System.Security.Cryptography.CryptographicException ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Cryptography error decrypting ElevenLabs API key: {ex.Message}");
+                _settings.ElevenLabsApiKey = string.Empty;
             }
         }
     }

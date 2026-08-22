@@ -263,6 +263,8 @@ public partial class SettingsViewModel : ObservableObject
 
     private void LoadFromSettings()
     {
+        _settingsService.EnsureApiKeysDecrypted();
+
         var settings = _settingsService.Settings;
         StartWithWindows = settings.StartWithWindows;
         WindowOpacity = settings.WindowOpacity;

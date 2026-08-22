@@ -38,4 +38,11 @@ public interface ISettingsService
     /// Raised when settings are saved.
     /// </summary>
     event EventHandler SettingsChanged;
+
+    /// <summary>
+    /// Decrypts any stored API keys on first use. Safe to call multiple times;
+    /// the work only runs once. Call this before reading key properties so that
+    /// the (potentially expensive) DPAPI decrypt is not performed at startup.
+    /// </summary>
+    void EnsureApiKeysDecrypted();
 }

@@ -1,13 +1,10 @@
 using System;
 using System.Threading;
-using System.Windows.Forms;
-using System.Windows.Automation;
 using System.Runtime.InteropServices;
 using QuickTranslate.Helpers;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.UI.WindowsAndMessaging;
-using System.Text;
 
 namespace QuickTranslate.Services;
 
@@ -15,59 +12,31 @@ public class ClipboardService : IClipboardService
 {
     public string CaptureSelection()
     {
-        Log("Starting Capture Strategy...");
-
-        // Tier 1: UI Automation
-        string capturedText = CaptureViaUIA();
+        // Tier 1: Win32 Messages (instant 0ms, safe for standard Win32 / Edit controls)
+        string capturedText = CaptureViaWin32();
         if (!string.IsNullOrEmpty(capturedText))
         {
-            Log($"Captured via UI Automation");
             return capturedText;
         }
 
-        // Tier 2: Win32 Messages
-        capturedText = CaptureViaWin32();
-        if (!string.IsNullOrEmpty(capturedText))
-        {
-            Log($"Captured via Win32 Messages");
-            return capturedText;
-        }
-
-        // Tier 3: Clipboard Fallback
-        Log("Falling back to Clipboard injection.");
+        // Tier 2: Direct Win32 Clipboard (SendInput Ctrl+C, safe and universal across all apps)
         capturedText = CaptureViaClipboard();
-        if (!string.IsNullOrEmpty(capturedText))
-        {
-            Log($"Captured via Clipboard");
-        }
-        else
-        {
-            Log("Clipboard capture failed or was empty.");
-        }
 
         return capturedText ?? string.Empty;
     }
 
-    private string CaptureViaUIA()
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    private static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
+
+    private static bool IsWin32EditControl(HWND hwnd)
     {
-        try
-        {
-            var focusedElement = AutomationElement.FocusedElement;
-            if (focusedElement != null && focusedElement.TryGetCurrentPattern(TextPattern.Pattern, out object patternObj))
-            {
-                var textPattern = (TextPattern)patternObj;
-                var selections = textPattern.GetSelection();
-                if (selections != null && selections.Length > 0)
-                {
-                    return selections[0].GetText(-1);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Log($"UIA Capture failed: {ex.Message}");
-        }
-        return string.Empty;
+        if (hwnd == IntPtr.Zero) return false;
+        var sb = new System.Text.StringBuilder(64);
+        if (GetClassName(hwnd, sb, sb.Capacity) == 0) return false;
+        string className = sb.ToString();
+        return className.Equals("Edit", StringComparison.OrdinalIgnoreCase)
+            || className.StartsWith("RichEdit", StringComparison.OrdinalIgnoreCase)
+            || className.StartsWith("RICHEDIT", StringComparison.OrdinalIgnoreCase);
     }
 
     unsafe private string CaptureViaWin32()
@@ -85,7 +54,10 @@ public class ClipboardService : IClipboardService
             if (PInvoke.GetGUIThreadInfo(fgThread, ref guiThreadInfo))
             {
                 HWND focusHwnd = guiThreadInfo.hwndFocus;
-                if (focusHwnd != IntPtr.Zero)
+                // Only send EM_GETSEL to verified native Win32 Edit/RichEdit controls.
+                // Sending EM_GETSEL to Chromium/Electron render widgets or WPF/custom controls
+                // is a synchronous cross-process call that causes stalls and returns nothing.
+                if (focusHwnd != IntPtr.Zero && IsWin32EditControl(focusHwnd))
                 {
                     int start = 0, end = 0;
                     PInvoke.SendMessage(focusHwnd, PInvoke.EM_GETSEL, new WPARAM((nuint)(void*)&start), new LPARAM((nint)(void*)&end));
@@ -118,9 +90,8 @@ public class ClipboardService : IClipboardService
                 }
             }
         }
-        catch (Exception ex)
+        catch
         {
-            Log($"Win32 Capture failed: {ex.Message}");
         }
         return string.Empty;
     }
@@ -132,18 +103,9 @@ public class ClipboardService : IClipboardService
         try
         {
             snapshot = ClipboardHelper.SaveSnapshot();
-            if (snapshot.HasContent)
-            {
-                Log($"Saved clipboard snapshot - Text: {snapshot.Text != null}, Files: {snapshot.Files?.Count ?? 0}, Image: {snapshot.Image != null}, HTML: {snapshot.Html != null}, RTF: {snapshot.Rtf != null}");
-            }
-            else
-            {
-                Log("Clipboard was empty.");
-            }
         }
-        catch (Exception ex)
+        catch
         {
-            Log($"Failed to save clipboard: {ex.Message}");
         }
 
         Thread.Sleep(10);
@@ -164,12 +126,10 @@ public class ClipboardService : IClipboardService
         {
             if (snapshot != null && snapshot.HasContent)
             {
-                Log("Restoring clipboard without history...");
                 ClipboardHelper.RestoreWithoutHistory(snapshot);
             }
             else
             {
-                Log("Clearing clipboard without history...");
                 ClipboardHelper.ClearWithoutHistory();
             }
         }
@@ -203,11 +163,6 @@ public class ClipboardService : IClipboardService
         return await tcs.Task;
     }
 
-    private void Log(string message)
-    {
-        DebugLog.Write($"[ClipboardService] {message}");
-    }
-
     public void SetText(string text)
     {
         if (string.IsNullOrEmpty(text)) return;
@@ -219,9 +174,8 @@ public class ClipboardService : IClipboardService
                 System.Windows.Clipboard.SetText(text);
                 return;
             }
-            catch (Exception ex)
+            catch
             {
-                Log($"Clipboard set text failed (attempt {i + 1}): {ex.Message}");
                 Thread.Sleep(10);
             }
         }

@@ -231,7 +231,6 @@ public partial class PopupViewModel : ObservableObject, IDisposable
     public async Task TranslateAsync(string sourceText, bool isReTranslation = false)
     {
         int genBefore = _translationGeneration;
-        DebugLog.Write($"TranslateAsync ENTER: text='{sourceText}', isReTranslation={isReTranslation}, gen={genBefore}, ctsCanceled={_translationCts?.IsCancellationRequested}");
 
         try
         {
@@ -248,12 +247,9 @@ public partial class PopupViewModel : ObservableObject, IDisposable
                 _hasCompletedFirstTranslation = false;
             }
 
-            DebugLog.Write($"TranslateAsync: gen now={_translationGeneration}, starting translation request");
-
             if (string.IsNullOrWhiteSpace(sourceText))
             {
                 CurrentTranslation = await _translationService.TranslateAsync(sourceText, TargetLanguage, null, _translationCts.Token);
-                DebugLog.Write($"TranslateAsync: empty text translation completed, CurrentTranslation={CurrentTranslation != null}");
                 return;
             }
 
@@ -311,15 +307,12 @@ public partial class PopupViewModel : ObservableObject, IDisposable
                 }
                 _hasCompletedFirstTranslation = true;
             }
-            DebugLog.Write($"TranslateAsync EXIT: gen={_translationGeneration}, CurrentTranslation={CurrentTranslation != null}");
         }
         catch (TaskCanceledException)
         {
-            DebugLog.Write($"TranslateAsync: TaskCanceledException caught, gen={_translationGeneration}");
         }
         catch (Exception ex)
         {
-            DebugLog.Write($"TranslateAsync: Exception '{ex.Message}', gen={_translationGeneration}");
             System.Diagnostics.Debug.WriteLine($"Translation Error: {ex.Message}");
         }
     }
@@ -463,7 +456,6 @@ public partial class PopupViewModel : ObservableObject, IDisposable
         _translationGeneration++;
         IsVisible = false;
         CurrentTranslation = null;
-        DebugLog.Write($"HideWindow: gen {genBefore} -> {_translationGeneration}, ctsWasCanceled={ctsWasCanceled}, ctsIsNull={_translationCts == null}");
     }
 
     #endregion

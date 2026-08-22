@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using QuickTranslate.Models;
 using QuickTranslate.Services;
@@ -20,6 +21,7 @@ namespace QuickTranslate;
 public partial class App : Application
 {
     private IServiceProvider? _serviceProvider;
+    private MainWindow? _mainWindow;
 
     public App()
     {
@@ -51,8 +53,14 @@ public partial class App : Application
         toolbarVm.TranslateRequested += OnToolbarTranslateRequested;
         toolbarVm.PronounceRequested += OnToolbarPronounceRequested;
 
-        // Register hotkeys
-        RegisterGlobalHotkeys();
+        // Initialize MainWindow first so global hotkeys can bind to its handle.
+        var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
+        _mainWindow = mainWindow;
+        mainWindow.Show();
+
+        // Register hotkeys (bound to the main window handle, so the popups
+        // are only constructed lazily on first use).
+        RegisterGlobalHotkeys(mainWindow);
 
         // Listen for setting changes
         var settingsService = _serviceProvider.GetRequiredService<ISettingsService>();
@@ -60,15 +68,17 @@ public partial class App : Application
 
         // Initialize text selection monitor
         var selectionMonitor = _serviceProvider.GetRequiredService<ITextSelectionMonitorService>();
-        selectionMonitor.TextSelected += OnTextSelected;
-        if (settingsService.Settings.ShowSelectionToolbar)
+        selectionMonitor.SelectionDetected += OnSelectionDetected;
+        if (settingsService.Settings?.ShowSelectionToolbar == true)
         {
             selectionMonitor.Start();
-        }
 
-        // Initialize MainWindow
-        var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
-        mainWindow.Show();
+            // Eagerly create the floating toolbar window at Background priority
+            // so the first text selection doesn't block the UI thread on
+            // InitializeComponent (XAML parsing + visual tree creation).
+            _ = Dispatcher.BeginInvoke(DispatcherPriority.Background,
+                (Action)(() => _serviceProvider!.GetRequiredService<FloatingToolbarWindow>()));
+        }
 
         // Wire tray icon to show main window
         trayIconService.ShowMainWindowRequested += (s, args) =>
@@ -99,9 +109,6 @@ public partial class App : Application
         // OCR Services
         services.AddSingleton<IScreenCaptureService, ScreenCaptureService>();
         services.AddSingleton<IOcrService, WindowsMediaOcrService>();
-
-        // UI Automation
-        services.AddSingleton<IUiAutomationService, UiAutomationService>();
 
         // Text Selection Monitor
         services.AddSingleton<IGlobalInputHookService, GlobalInputHookService>();
@@ -158,12 +165,12 @@ public partial class App : Application
 
     private void OnSettingsChanged(object? sender, EventArgs e)
     {
-        if (_serviceProvider != null)
+        if (_serviceProvider != null && _mainWindow != null)
         {
             var settingsService = _serviceProvider.GetRequiredService<ISettingsService>();
-            RegisterTranslationHotkey(settingsService.Settings.Hotkey);
-            RegisterPronunciationHotkey(settingsService.Settings?.PronunciationHotkey ?? "Ctrl+Shift+P");
-            RegisterOcrHotkey(settingsService.Settings?.OcrHotkey ?? Constants.Defaults.OcrHotkey);
+            RegisterTranslationHotkey(settingsService.Settings?.Hotkey ?? "Ctrl+Shift+T", _mainWindow);
+            RegisterPronunciationHotkey(settingsService.Settings?.PronunciationHotkey ?? "Ctrl+Shift+P", _mainWindow);
+            RegisterOcrHotkey(settingsService.Settings?.OcrHotkey ?? Constants.Defaults.OcrHotkey, _mainWindow);
 
             // Update OCR language
             var ocrService = _serviceProvider.GetRequiredService<IOcrService>();
@@ -171,7 +178,7 @@ public partial class App : Application
 
             // Update Text Selection Monitor State
             var selectionMonitor = _serviceProvider.GetRequiredService<ITextSelectionMonitorService>();
-            if (settingsService.Settings.ShowSelectionToolbar)
+            if (settingsService.Settings?.ShowSelectionToolbar == true)
             {
                 selectionMonitor.Start();
             }
@@ -222,7 +229,7 @@ public partial class App : Application
     private const int HOTKEY_ID_PRONUNCIATION = 2;
     private const int HOTKEY_ID_OCR = 3;
 
-    private void RegisterGlobalHotkeys()
+    private void RegisterGlobalHotkeys(Window mainWindow)
     {
         if (_serviceProvider == null) return;
         var hotkeyService = _serviceProvider.GetRequiredService<IHotkeyService>();
@@ -231,26 +238,25 @@ public partial class App : Application
         hotkeyService.HotkeyPressed += OnHotkeyPressed;
 
         // Register Translation hotkey
-        RegisterTranslationHotkey(settingsService.Settings.Hotkey);
+        RegisterTranslationHotkey(settingsService.Settings.Hotkey, mainWindow);
 
         // Register Pronunciation hotkey
-        RegisterPronunciationHotkey(settingsService.Settings?.PronunciationHotkey ?? "Ctrl+Shift+P");
+        RegisterPronunciationHotkey(settingsService.Settings?.PronunciationHotkey ?? "Ctrl+Shift+P", mainWindow);
 
         // Register OCR hotkey
-        RegisterOcrHotkey(settingsService.Settings?.OcrHotkey ?? Constants.Defaults.OcrHotkey);
+        RegisterOcrHotkey(settingsService.Settings?.OcrHotkey ?? Constants.Defaults.OcrHotkey, mainWindow);
 
         // Initialize OCR language
         var ocrService = _serviceProvider.GetRequiredService<IOcrService>();
         ocrService.CurrentLanguageCode = settingsService.Settings?.OcrLanguage ?? Constants.Defaults.OcrLanguage;
     }
 
-    private void RegisterTranslationHotkey(string hotkey)
+    private void RegisterTranslationHotkey(string hotkey, Window mainWindow)
     {
         if (_serviceProvider == null) return;
         var hotkeyService = _serviceProvider.GetRequiredService<IHotkeyService>();
-        var translationPopup = _serviceProvider.GetRequiredService<TranslationPopup>();
 
-        bool success = hotkeyService.Register(HOTKEY_ID_TRANSLATE, hotkey, translationPopup);
+        bool success = hotkeyService.Register(HOTKEY_ID_TRANSLATE, hotkey, mainWindow);
         if (!success)
         {
             MessageBox.Show(
@@ -261,13 +267,12 @@ public partial class App : Application
         }
     }
 
-    private void RegisterPronunciationHotkey(string hotkey)
+    private void RegisterPronunciationHotkey(string hotkey, Window mainWindow)
     {
         if (_serviceProvider == null) return;
         var hotkeyService = _serviceProvider.GetRequiredService<IHotkeyService>();
-        var pronunciationPopup = _serviceProvider.GetRequiredService<PronunciationPopup>();
 
-        bool success = hotkeyService.Register(HOTKEY_ID_PRONUNCIATION, hotkey, pronunciationPopup);
+        bool success = hotkeyService.Register(HOTKEY_ID_PRONUNCIATION, hotkey, mainWindow);
         if (!success)
         {
             MessageBox.Show(
@@ -278,13 +283,12 @@ public partial class App : Application
         }
     }
 
-    private void RegisterOcrHotkey(string hotkey)
+    private void RegisterOcrHotkey(string hotkey, Window mainWindow)
     {
         if (_serviceProvider == null) return;
         var hotkeyService = _serviceProvider.GetRequiredService<IHotkeyService>();
-        var translationPopup = _serviceProvider.GetRequiredService<TranslationPopup>();
 
-        bool success = hotkeyService.Register(HOTKEY_ID_OCR, hotkey, translationPopup);
+        bool success = hotkeyService.Register(HOTKEY_ID_OCR, hotkey, mainWindow);
         if (!success)
         {
             MessageBox.Show(
@@ -348,14 +352,14 @@ public partial class App : Application
 
     /// <summary>
     /// Handles text selection detected by the global mouse hook.
-    /// Spawns the floating toolbar under the cursor.
+    /// Spawns the floating toolbar near the cursor without capturing text yet.
     /// </summary>
-    private void OnTextSelected(string text)
+    private void OnSelectionDetected(Point point)
     {
-        if (_serviceProvider == null || string.IsNullOrWhiteSpace(text)) return;
+        if (_serviceProvider == null) return;
         
         var toolbarWindow = _serviceProvider.GetRequiredService<FloatingToolbarWindow>();
-        toolbarWindow.ShowToolbar(text, ToolbarDisplayMode.Selection);
+        toolbarWindow.ShowToolbar(point, ToolbarDisplayMode.Selection);
     }
 
     /// <summary>
