@@ -1,10 +1,8 @@
 using System;
 using System.Collections.Specialized;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Windows;
 using System.Windows.Media.Imaging;
-using System.Windows.Input;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.UI.Input.KeyboardAndMouse;

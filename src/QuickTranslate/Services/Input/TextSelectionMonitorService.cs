@@ -1,24 +1,23 @@
 using System;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using QuickTranslate.Helpers;
+using Windows.Win32;
 
 namespace QuickTranslate.Services.Input;
 
 /// <summary>
-/// Monitors for text selection across the OS using IGlobalInputHookService.
-/// When the user performs a drag-select (mouse down → move → mouse up), it captures
-/// the selected text via clipboard and raises the TextSelected event.
+/// Monitors for text selection gestures across the OS using IGlobalInputHookService.
+/// When the user performs a selection gesture (drag-release, multi-click, or keyboard selection),
+/// it fires the SelectionDetected event with the cursor coordinates without performing eager capture.
 /// </summary>
-public partial class TextSelectionMonitorService : ITextSelectionMonitorService
+public class TextSelectionMonitorService : ITextSelectionMonitorService
 {
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern uint GetDoubleClickTime();
 
     private const int MIN_DRAG_DISTANCE = 5;
-    private const int CAPTURE_DELAY_MS = 20;
+    private const int SELECTION_DEBOUNCE_MS = 50;
 
     private const int VK_SHIFT = 0x10;
     private const int VK_LSHIFT = 0xA0;
@@ -30,8 +29,6 @@ public partial class TextSelectionMonitorService : ITextSelectionMonitorService
     private const int VK_ESCAPE = 0x1B;
     private static readonly int[] NavigationKeys = [0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28]; // PgUp, PgDn, End, Home, ←, ↑, →, ↓
 
-    private readonly IUiAutomationService _uiAutomationService;
-    private readonly IClipboardService _clipboardService;
     private readonly IGlobalInputHookService _hookService;
 
     private Point _mouseDownPoint;
@@ -45,10 +42,9 @@ public partial class TextSelectionMonitorService : ITextSelectionMonitorService
     private int _clickCount;
     private readonly uint _doubleClickTimeMs;
 
-    private readonly SemaphoreSlim _captureLock = new(1, 1);
-    private int _captureGeneration;
+    private int _selectionGeneration;
 
-    public event Action<string>? TextSelected;
+    public event Action<Point>? SelectionDetected;
 
     public bool IsEnabled 
     { 
@@ -56,13 +52,8 @@ public partial class TextSelectionMonitorService : ITextSelectionMonitorService
         set => _hookService.IsEnabled = value; 
     }
 
-    public TextSelectionMonitorService(
-        IUiAutomationService uiAutomationService, 
-        IClipboardService clipboardService,
-        IGlobalInputHookService hookService)
+    public TextSelectionMonitorService(IGlobalInputHookService hookService)
     {
-        _uiAutomationService = uiAutomationService;
-        _clipboardService = clipboardService;
         _hookService = hookService;
         _doubleClickTimeMs = GetDoubleClickTime();
 
@@ -113,8 +104,7 @@ public partial class TextSelectionMonitorService : ITextSelectionMonitorService
 
         if (distance >= MIN_DRAG_DISTANCE || _clickCount >= 2 || _shiftDown)
         {
-            DebugLog.Write($"Mouse selection detected. Distance: {distance:F1}, Clicks: {_clickCount}, Shift: {_shiftDown}. Firing CaptureSelectionAsync...");
-            _ = CaptureSelectionAsync();
+            TriggerSelectionDetected(physicalPoint);
         }
     }
 
@@ -147,16 +137,14 @@ public partial class TextSelectionMonitorService : ITextSelectionMonitorService
         {
             _pendingKeyboardSelection = false;
             _shiftDown = false;
-            DebugLog.Write("Keyboard selection detected (Shift released), firing CaptureSelectionAsync...");
-            _ = CaptureSelectionAsync();
+            TriggerSelectionDetected(null);
             return;
         }
 
         if (vk == VK_A && _pendingKeyboardSelection)
         {
             _pendingKeyboardSelection = false;
-            DebugLog.Write("Keyboard selection detected (Ctrl+A), firing CaptureSelectionAsync...");
-            _ = CaptureSelectionAsync();
+            TriggerSelectionDetected(null);
             return;
         }
 
@@ -164,50 +152,33 @@ public partial class TextSelectionMonitorService : ITextSelectionMonitorService
         if (isCtrl) _ctrlDown = false;
     }
 
-    private async Task CaptureSelectionAsync()
+    private void TriggerSelectionDetected(Point? point)
     {
-        int myGen = Interlocked.Increment(ref _captureGeneration);
-
-        await _captureLock.WaitAsync();
-        try
+        int currentGen = Interlocked.Increment(ref _selectionGeneration);
+        _ = Task.Run(async () =>
         {
-            // If another capture was queued while we were waiting, skip this one
-            if (myGen < _captureGeneration)
+            await Task.Delay(SELECTION_DEBOUNCE_MS).ConfigureAwait(false);
+            if (currentGen != _selectionGeneration) return;
+
+            Point pt;
+            if (point.HasValue)
             {
-                DebugLog.Write("Skipping stale capture request in favor of a newer one.");
-                return;
-            }
-
-            await Task.Delay(CAPTURE_DELAY_MS);
-
-            string? text = _uiAutomationService.TryGetSelectedText();
-
-            if (string.IsNullOrEmpty(text))
-            {
-                DebugLog.Write("UIA returned empty, falling back to clipboard...");
-                text = await _clipboardService.CaptureSelectionAsync();
+                pt = point.Value;
             }
             else
             {
-                DebugLog.Write("UIA succeeded, clipboard not touched.");
+                if (PInvoke.GetCursorPos(out var cursorPos))
+                {
+                    pt = new Point(cursorPos.X, cursorPos.Y);
+                }
+                else
+                {
+                    pt = new Point(0, 0);
+                }
             }
 
-            DebugLog.Write($"Captured text: '{text}' (Length: {text?.Length})");
-
-            if (!string.IsNullOrWhiteSpace(text))
-            {
-                Application.Current?.Dispatcher.Invoke(() => TextSelected?.Invoke(text));
-            }
-        }
-        catch (Exception ex)
-        {
-            DebugLog.Write($"Exception: {ex}");
-            Debug.WriteLine($"TextSelectionMonitor capture failed: {ex.Message}");
-        }
-        finally
-        {
-            _captureLock.Release();
-        }
+            Application.Current?.Dispatcher.BeginInvoke(() => SelectionDetected?.Invoke(pt));
+        });
     }
 
     public void Dispose()

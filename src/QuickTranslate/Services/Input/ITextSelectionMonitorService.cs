@@ -1,18 +1,20 @@
 using System;
+using System.Windows;
 
 namespace QuickTranslate.Services.Input;
 
 /// <summary>
-/// Service that monitors for text selection across the OS.
-/// When the user selects text (drag-release), it captures the selection and raises an event.
+/// Service that monitors for text selection gestures across the OS.
+/// When the user performs a text selection (drag-release, multi-click, keyboard selection),
+/// it raises an event with cursor coordinates without performing eager capture.
 /// </summary>
 public interface ITextSelectionMonitorService : IDisposable
 {
     /// <summary>
-    /// Raised when text has been selected via mouse drag-release.
-    /// Payload is the selected text.
+    /// Raised when a text selection gesture is detected.
+    /// Payload is the physical screen coordinates of the cursor/selection.
     /// </summary>
-    event Action<string>? TextSelected;
+    event Action<Point>? SelectionDetected;
 
     /// <summary>
     /// Gets or sets whether monitoring is active.

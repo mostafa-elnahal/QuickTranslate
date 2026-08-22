@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using QuickTranslate.Models;
 using QuickTranslate.Services;
@@ -67,10 +68,16 @@ public partial class App : Application
 
         // Initialize text selection monitor
         var selectionMonitor = _serviceProvider.GetRequiredService<ITextSelectionMonitorService>();
-        selectionMonitor.TextSelected += OnTextSelected;
-        if (settingsService.Settings.ShowSelectionToolbar)
+        selectionMonitor.SelectionDetected += OnSelectionDetected;
+        if (settingsService.Settings?.ShowSelectionToolbar == true)
         {
             selectionMonitor.Start();
+
+            // Eagerly create the floating toolbar window at Background priority
+            // so the first text selection doesn't block the UI thread on
+            // InitializeComponent (XAML parsing + visual tree creation).
+            _ = Dispatcher.BeginInvoke(DispatcherPriority.Background,
+                (Action)(() => _serviceProvider!.GetRequiredService<FloatingToolbarWindow>()));
         }
 
         // Wire tray icon to show main window
@@ -102,9 +109,6 @@ public partial class App : Application
         // OCR Services
         services.AddSingleton<IScreenCaptureService, ScreenCaptureService>();
         services.AddSingleton<IOcrService, WindowsMediaOcrService>();
-
-        // UI Automation
-        services.AddSingleton<IUiAutomationService, UiAutomationService>();
 
         // Text Selection Monitor
         services.AddSingleton<IGlobalInputHookService, GlobalInputHookService>();
@@ -164,7 +168,7 @@ public partial class App : Application
         if (_serviceProvider != null && _mainWindow != null)
         {
             var settingsService = _serviceProvider.GetRequiredService<ISettingsService>();
-            RegisterTranslationHotkey(settingsService.Settings.Hotkey, _mainWindow);
+            RegisterTranslationHotkey(settingsService.Settings?.Hotkey ?? "Ctrl+Shift+T", _mainWindow);
             RegisterPronunciationHotkey(settingsService.Settings?.PronunciationHotkey ?? "Ctrl+Shift+P", _mainWindow);
             RegisterOcrHotkey(settingsService.Settings?.OcrHotkey ?? Constants.Defaults.OcrHotkey, _mainWindow);
 
@@ -174,7 +178,7 @@ public partial class App : Application
 
             // Update Text Selection Monitor State
             var selectionMonitor = _serviceProvider.GetRequiredService<ITextSelectionMonitorService>();
-            if (settingsService.Settings.ShowSelectionToolbar)
+            if (settingsService.Settings?.ShowSelectionToolbar == true)
             {
                 selectionMonitor.Start();
             }
@@ -348,14 +352,14 @@ public partial class App : Application
 
     /// <summary>
     /// Handles text selection detected by the global mouse hook.
-    /// Spawns the floating toolbar under the cursor.
+    /// Spawns the floating toolbar near the cursor without capturing text yet.
     /// </summary>
-    private void OnTextSelected(string text)
+    private void OnSelectionDetected(Point point)
     {
-        if (_serviceProvider == null || string.IsNullOrWhiteSpace(text)) return;
+        if (_serviceProvider == null) return;
         
         var toolbarWindow = _serviceProvider.GetRequiredService<FloatingToolbarWindow>();
-        toolbarWindow.ShowToolbar(text, ToolbarDisplayMode.Selection);
+        toolbarWindow.ShowToolbar(point, ToolbarDisplayMode.Selection);
     }
 
     /// <summary>
